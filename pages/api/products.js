@@ -1,3 +1,5 @@
+import prisma from '../../lib/prisma';
+
 const sampleProducts = [
   {
     id: 1,
@@ -67,29 +69,21 @@ const sampleProducts = [
 export default async function handler(req, res) {
   if (req.method === 'GET') {
     try {
-      const dbUrl = process.env.DATABASE_URL || '';
-      const isLocalhost = dbUrl.includes('localhost') || dbUrl.includes('127.0.0.1');
+      if (prisma) {
+        const products = await prisma.product.findMany({
+          orderBy: {
+            id: 'asc',
+          },
+        });
 
-      // Only attempt Prisma query if a real remote database URL is configured
-      if (dbUrl && !isLocalhost) {
-        const { default: prisma } = await import('../../lib/prisma');
-        if (prisma) {
-          const products = await prisma.product.findMany({
-            orderBy: {
-              id: 'asc',
-            },
-          });
-
-          if (products && products.length > 0) {
-            return res.status(200).json(products);
-          }
+        if (products && products.length > 0) {
+          return res.status(200).json(products);
         }
       }
 
-      // Fall back to sample products on Vercel when no remote database is connected
       return res.status(200).json(sampleProducts);
     } catch (error) {
-      console.error("Database connection failed, returning fallback products:", error);
+      console.error("Database query failed, returning fallback products:", error);
       return res.status(200).json(sampleProducts);
     }
   } else {
