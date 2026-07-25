@@ -1,5 +1,3 @@
-import prisma from '../../lib/prisma';
-
 const sampleProducts = [
   {
     id: 1,
@@ -69,21 +67,32 @@ const sampleProducts = [
 export default async function handler(req, res) {
   if (req.method === 'GET') {
     try {
-      if (prisma) {
-        const products = await prisma.product.findMany({
-          orderBy: {
-            id: 'asc',
-          },
-        });
+      const dbUrl = process.env.DATABASE_URL || '';
+      const isLocalhost = dbUrl.includes('localhost') || dbUrl.includes('127.0.0.1');
 
-        if (products && products.length > 0) {
-          return res.status(200).json(products);
+      if (dbUrl && !isLocalhost) {
+        try {
+          const prismaModule = await import('../../lib/prisma');
+          const prisma = prismaModule.default;
+          if (prisma) {
+            const products = await prisma.product.findMany({
+              orderBy: {
+                id: 'asc',
+              },
+            });
+
+            if (products && products.length > 0) {
+              return res.status(200).json(products);
+            }
+          }
+        } catch (dbError) {
+          console.error("Prisma database query failed, returning fallback products:", dbError);
         }
       }
 
       return res.status(200).json(sampleProducts);
     } catch (error) {
-      console.error("Database query failed, returning fallback products:", error);
+      console.error("Products API error, returning fallback products:", error);
       return res.status(200).json(sampleProducts);
     }
   } else {
