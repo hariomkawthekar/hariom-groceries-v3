@@ -1,5 +1,3 @@
-import prisma from '../../lib/prisma';
-
 const sampleProducts = [
   {
     id: 1,
@@ -69,16 +67,19 @@ const sampleProducts = [
 export default async function handler(req, res) {
   if (req.method === 'GET') {
     try {
-      // Try to fetch products from the database using Prisma if instantiated
-      if (prisma) {
-        const products = await prisma.product.findMany({
-          orderBy: {
-            id: 'asc',
-          },
-        });
+      // Try to fetch products from the database using Prisma if DATABASE_URL is available
+      if (process.env.DATABASE_URL) {
+        const { default: prisma } = await import('../../lib/prisma');
+        if (prisma) {
+          const products = await prisma.product.findMany({
+            orderBy: {
+              id: 'asc',
+            },
+          });
 
-        if (products && products.length > 0) {
-          return res.status(200).json(products);
+          if (products && products.length > 0) {
+            return res.status(200).json(products);
+          }
         }
       }
 
@@ -94,4 +95,5 @@ export default async function handler(req, res) {
     return res.status(405).end(`Method ${req.method} Not Allowed`);
   }
 }
+
 
