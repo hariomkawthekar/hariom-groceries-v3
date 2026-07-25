@@ -69,18 +69,20 @@ const sampleProducts = [
 export default async function handler(req, res) {
   if (req.method === 'GET') {
     try {
-      // Try to fetch products from the database using Prisma
-      const products = await prisma.product.findMany({
-        orderBy: {
-          id: 'asc',
-        },
-      });
+      // Try to fetch products from the database using Prisma if instantiated
+      if (prisma) {
+        const products = await prisma.product.findMany({
+          orderBy: {
+            id: 'asc',
+          },
+        });
 
-      if (products && products.length > 0) {
-        return res.status(200).json(products);
+        if (products && products.length > 0) {
+          return res.status(200).json(products);
+        }
       }
 
-      // If database is empty, return default sample products
+      // If database is empty or not configured, return default sample products
       return res.status(200).json(sampleProducts);
     } catch (error) {
       console.error("Database connection failed, returning fallback products:", error);
