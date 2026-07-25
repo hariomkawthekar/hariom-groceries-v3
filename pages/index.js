@@ -18,17 +18,21 @@ export default function Home({ cartItems, setCartItems }) {
   useEffect(() => {
     setLoading(true);
     fetch('/api/products')
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        return res.json();
+      })
       .then(data => {
         if (Array.isArray(data) && data.length > 0) {
           setProducts(data);
         } else {
-          console.log("Using default fallback products");
           setProducts(DEFAULT_PRODUCTS);
         }
       })
       .catch(err => {
-        console.error("Fetch products error, using default products:", err);
+        console.error("Fetch products error, using default fallback products:", err);
         setProducts(DEFAULT_PRODUCTS);
       })
       .finally(() => {
