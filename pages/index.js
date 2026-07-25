@@ -4,10 +4,11 @@ import ProductCard from '@/components/ProductCard'
 import { motion } from 'framer-motion'
 import { FiGrid, FiList } from 'react-icons/fi'
 import Link from 'next/link'
+import { DEFAULT_PRODUCTS } from '@/utils/constants'
 
 export default function Home({ cartItems, setCartItems }) {
   const router = useRouter()
-  const [products, setProducts] = useState([])
+  const [products, setProducts] = useState(DEFAULT_PRODUCTS)
   const [loading, setLoading] = useState(true)
   const [internalSearchQuery, setInternalSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('All')
@@ -19,15 +20,16 @@ export default function Home({ cartItems, setCartItems }) {
     fetch('/api/products')
       .then(res => res.json())
       .then(data => {
-        if (Array.isArray(data)) {
+        if (Array.isArray(data) && data.length > 0) {
           setProducts(data);
         } else {
-          console.error("Expected array from /api/products but got:", data);
-          setProducts([]);
+          console.log("Using default fallback products");
+          setProducts(DEFAULT_PRODUCTS);
         }
       })
       .catch(err => {
-        console.error("Fetch products error:", err);
+        console.error("Fetch products error, using default products:", err);
+        setProducts(DEFAULT_PRODUCTS);
       })
       .finally(() => {
         setLoading(false);
