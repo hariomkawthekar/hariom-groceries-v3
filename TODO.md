@@ -1,0 +1,1 @@
+# TODO: Fix CartSidebar Link Error (COMPLETE)\n\n- [x] Step 1: Edit components/CartSidebar.js to add `import Link from 'next/link';`\n- [x] Step 2: Verify the fix by testing the cart/checkout flow (import added successfully, error resolved)\n- [x] Step 3: Mark complete
