@@ -2,12 +2,11 @@
   "name": "hariom-groceries",
   "version": "1.0.0",
   "description": "Hariom Grocery - Elegant Grocery Store",
-  "main": "server.js",
   "scripts": {
     "dev": "next dev",
     "build": "npx prisma generate || true && next build",
     "postinstall": "npx prisma generate || true",
-    "start": "NODE_ENV=production node server.js",
+    "start": "next start",
     "export": "next export",
     "lint": "next lint"
   },
