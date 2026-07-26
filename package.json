@@ -5,8 +5,8 @@
   "main": "server.js",
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
-    "postinstall": "prisma generate",
+    "build": "npx prisma generate || true && next build",
+    "postinstall": "npx prisma generate || true",
     "start": "NODE_ENV=production node server.js",
     "export": "next export",
     "lint": "next lint"
