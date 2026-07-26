@@ -6,17 +6,24 @@ import { FiGrid, FiList } from 'react-icons/fi'
 import Link from 'next/link'
 import { DEFAULT_PRODUCTS } from '@/utils/constants'
 
-export default function Home({ cartItems, setCartItems }) {
+export async function getStaticProps() {
+  return {
+    props: {
+      initialProducts: DEFAULT_PRODUCTS,
+    },
+  }
+}
+
+export default function Home({ cartItems, setCartItems, initialProducts = DEFAULT_PRODUCTS }) {
   const router = useRouter()
-  const [products, setProducts] = useState(DEFAULT_PRODUCTS)
-  const [loading, setLoading] = useState(true)
+  const [products, setProducts] = useState(initialProducts)
+  const [loading, setLoading] = useState(false)
   const [internalSearchQuery, setInternalSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [sortBy, setSortBy] = useState('popular')
   const [view, setView] = useState('grid')
 
   useEffect(() => {
-    setLoading(true);
     fetch('/api/products')
       .then(res => {
         if (!res.ok) {
@@ -27,16 +34,10 @@ export default function Home({ cartItems, setCartItems }) {
       .then(data => {
         if (Array.isArray(data) && data.length > 0) {
           setProducts(data);
-        } else {
-          setProducts(DEFAULT_PRODUCTS);
         }
       })
       .catch(err => {
-        console.error("Fetch products error, using default fallback products:", err);
-        setProducts(DEFAULT_PRODUCTS);
-      })
-      .finally(() => {
-        setLoading(false);
+        console.error("Fetch products error, using pre-rendered products:", err);
       });
   }, [])
 
