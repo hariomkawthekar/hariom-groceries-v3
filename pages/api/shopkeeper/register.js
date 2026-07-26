@@ -11,6 +11,9 @@ export default async function handler(req, res) {
   }
 
   try {
+    if (!prisma) {
+      return res.status(400).json({ message: 'Database is not configured on cloud server.' })
+    }
     const existing = await prisma.shopkeeper.findFirst({
       where: { OR: [{ shopkeeperId }, { email }] }
     })

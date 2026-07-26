@@ -14,6 +14,9 @@ export default async function handler(req, res) {
   }
 
   try {
+    if (!prisma) {
+      return res.status(401).json({ message: 'Database is not configured on cloud server.' })
+    }
     // Find shopkeeper by ID
     const shopkeeper = await prisma.shopkeeper.findUnique({
       where: { shopkeeperId }
