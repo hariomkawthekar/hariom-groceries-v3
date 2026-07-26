@@ -64,37 +64,9 @@ const sampleProducts = [
   }
 ];
 
-export default async function handler(req, res) {
+export default function handler(req, res) {
   if (req.method === 'GET') {
-    try {
-      const dbUrl = process.env.DATABASE_URL || '';
-      const isLocalhost = dbUrl.includes('localhost') || dbUrl.includes('127.0.0.1');
-
-      if (dbUrl && !isLocalhost) {
-        try {
-          const prismaModule = await import('../../lib/prisma');
-          const prisma = prismaModule.default;
-          if (prisma) {
-            const products = await prisma.product.findMany({
-              orderBy: {
-                id: 'asc',
-              },
-            });
-
-            if (products && products.length > 0) {
-              return res.status(200).json(products);
-            }
-          }
-        } catch (dbError) {
-          console.error("Prisma database query failed, returning fallback products:", dbError);
-        }
-      }
-
-      return res.status(200).json(sampleProducts);
-    } catch (error) {
-      console.error("Products API error, returning fallback products:", error);
-      return res.status(200).json(sampleProducts);
-    }
+    return res.status(200).json(sampleProducts);
   } else {
     res.setHeader('Allow', ['GET']);
     return res.status(405).end(`Method ${req.method} Not Allowed`);
