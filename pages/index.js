@@ -197,14 +197,26 @@ export default function Home({ cartItems, setCartItems, initialProducts = DEFAUL
         <motion.div 
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="text-center py-24"
+          className="text-center py-24 bg-white rounded-2xl shadow-sm border border-gray-100 my-8 p-8"
         >
           <div className="text-6xl mb-4">🔍</div>
           <h2 className="text-2xl font-bold text-gray-700 mb-2">No products found</h2>
-          <p className="text-gray-500 mb-4">Try adjusting your search or filters</p>
+          <p className="text-gray-500 mb-6">Try adjusting your search or filters to see available grocery items.</p>
           {internalSearchQuery.trim() && (
-            <p className="text-sm text-gray-400">Showing results for: "{internalSearchQuery}"</p>
+            <p className="text-sm text-gray-400 mb-6">Showing results for: "{internalSearchQuery}"</p>
           )}
+          <button
+            onClick={() => {
+              setSelectedCategory('All')
+              setInternalSearchQuery('')
+              if (router.query.search) {
+                router.push('/', undefined, { shallow: true })
+              }
+            }}
+            className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-semibold hover:bg-blue-700 transition-all shadow-md hover:shadow-lg"
+          >
+            Show All Products
+          </button>
         </motion.div>
       )}
 
