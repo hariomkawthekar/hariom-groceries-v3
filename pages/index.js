@@ -60,9 +60,9 @@ export default function Home({ cartItems, setCartItems, initialProducts = DEFAUL
     })
   }
 
-  // Build complete categories list ensuring Greens, Oil, Dairy, Chocolate, Snacks, Fruits, Vegetables, etc.
+  // Build complete categories list ensuring unique names (no duplicate 'All')
   const categoriesInProducts = [...new Set(products.map(p => p.category))]
-  const allCategoryNames = ['All', ...new Set([...CATEGORY_DETAILS.map(c => c.name), ...categoriesInProducts])].filter(Boolean)
+  const allCategoryNames = Array.from(new Set(['All', ...CATEGORY_DETAILS.map(c => c.name), ...categoriesInProducts])).filter(Boolean)
   
   const searchedProducts = !internalSearchQuery.trim() 
     ? products 
