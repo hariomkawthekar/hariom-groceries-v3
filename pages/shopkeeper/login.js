@@ -50,12 +50,29 @@ export default function Login() {
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
           <form className="space-y-6" onSubmit={handleSubmit}>
-            {error && <div className="bg-red-50 text-red-700 p-3 rounded text-sm font-medium">{error}</div>}
+            {error && <div className="bg-red-50 text-red-700 p-3 rounded text-sm font-medium border border-red-200">{error}</div>}
             
+            <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg text-xs text-blue-800 space-y-1">
+              <p className="font-bold flex items-center justify-between">
+                <span>🔑 Quick Demo Login Credentials:</span>
+                <button
+                  type="button"
+                  onClick={() => setFormData({ shopkeeperId: 'SK101', email: 'shopkeeper@hariom.com', password: 'password123' })}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-2 py-0.5 rounded text-[10px]"
+                >
+                  Auto Fill
+                </button>
+              </p>
+              <p>• <strong>Shopkeeper ID:</strong> <code>SK101</code></p>
+              <p>• <strong>Email:</strong> <code>shopkeeper@hariom.com</code></p>
+              <p>• <strong>Password:</strong> <code>password123</code></p>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700">Shopkeeper ID</label>
               <div className="mt-1">
                 <input required type="text"
+                  placeholder="e.g. SK101"
                   className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-black"
                   value={formData.shopkeeperId}
                   onChange={e => setFormData({ ...formData, shopkeeperId: e.target.value })}
@@ -67,6 +84,7 @@ export default function Login() {
               <label className="block text-sm font-medium text-gray-700">Email address</label>
               <div className="mt-1">
                 <input required type="email"
+                  placeholder="e.g. shopkeeper@hariom.com"
                   className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-black"
                   value={formData.email}
                   onChange={e => setFormData({ ...formData, email: e.target.value })}
@@ -78,6 +96,7 @@ export default function Login() {
               <label className="block text-sm font-medium text-gray-700">Password</label>
               <div className="mt-1">
                 <input required type="password"
+                  placeholder="••••••••"
                   className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-black"
                   value={formData.password}
                   onChange={e => setFormData({ ...formData, password: e.target.value })}
@@ -87,7 +106,7 @@ export default function Login() {
 
             <div>
               <button type="submit" disabled={loading}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 font-bold shadow-md"
               >
                 {loading ? 'Verifying...' : 'Verify & Login'}
               </button>
