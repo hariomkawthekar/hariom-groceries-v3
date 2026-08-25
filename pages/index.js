@@ -119,7 +119,7 @@ export default function Home({ cartItems, setCartItems, initialProducts = DEFAUL
               </h1>
 
               <p className="text-emerald-100 text-sm sm:text-base max-w-xl leading-relaxed opacity-90">
-                Shop 100% farm-fresh vegetables, organic greens, dairy, cooking oil, chocolates & daily staples at wholesale prices directly to your doorstep.
+                Shop organic greens, dairy, cooking oil, chocolates & daily staples at wholesale prices directly to your doorstep.
               </p>
 
               <div className="pt-2 flex flex-wrap items-center gap-3">

@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '@/utils/supabaseClient';
+import { supabase, isSupabaseConfigured } from '@/utils/supabaseClient';
 
 const AuthContext = createContext();
 
@@ -15,7 +15,7 @@ export function AuthProvider({ children }) {
     // Check initial Supabase or local session
     const getInitialSession = async () => {
       try {
-        if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
+        if (isSupabaseConfigured && supabase?.auth) {
           const { data: { session } } = await supabase.auth.getSession();
           if (session?.user) {
             setCurrentUser({
@@ -41,7 +41,7 @@ export function AuthProvider({ children }) {
 
     // Listen for auth state changes if Supabase configured
     let subscription = null;
-    if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
+    if (isSupabaseConfigured && supabase?.auth) {
       const { data } = supabase.auth.onAuthStateChange((_event, session) => {
         if (session?.user) {
           setCurrentUser({
@@ -53,7 +53,7 @@ export function AuthProvider({ children }) {
           setCurrentUser(null);
         }
       });
-      subscription = data.subscription;
+      subscription = data?.subscription;
     }
 
     return () => {
@@ -62,7 +62,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const signup = async (email, password, name) => {
-    if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
+    if (isSupabaseConfigured && supabase?.auth) {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -85,7 +85,7 @@ export function AuthProvider({ children }) {
   };
 
   const login = async (email, password) => {
-    if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
+    if (isSupabaseConfigured && supabase?.auth) {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
@@ -104,7 +104,7 @@ export function AuthProvider({ children }) {
   };
 
   const logout = async () => {
-    if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
+    if (isSupabaseConfigured && supabase?.auth) {
       await supabase.auth.signOut();
     }
     localStorage.removeItem('mockUser');
@@ -126,5 +126,6 @@ export function AuthProvider({ children }) {
     </AuthContext.Provider>
   );
 }
+
 
 
