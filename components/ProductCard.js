@@ -111,23 +111,44 @@ export default function ProductCard({ product, onAddToCart, view = 'grid' }) {
 
       <div className="p-4 flex-1 flex flex-col justify-between">
         <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100">
-              {product.category}
-            </span>
+          <div className="flex items-center justify-between mb-1.5 flex-wrap gap-1">
+            <div className="flex items-center gap-1">
+              <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100">
+                {product.category}
+              </span>
+              {product.subcategory && (
+                <span className="text-[10px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full border border-teal-100">
+                  {product.subcategory}
+                </span>
+              )}
+            </div>
             {product.rating && (
               <div className="flex items-center gap-1 text-amber-500 text-xs font-bold">
                 <FiStar className="fill-amber-400 h-3.5 w-3.5" />
                 <span>{product.rating}</span>
-                <span className="text-gray-400 font-normal">({product.ratingCount || 50})</span>
+                <span className="text-gray-400 font-normal">({product.ratingCount || 125})</span>
               </div>
             )}
           </div>
 
+          {product.brand && (
+            <span className="text-[10px] font-black tracking-wider uppercase text-emerald-800 block mb-0.5">
+              {product.brand}
+            </span>
+          )}
+
           <h3 className="font-bold text-gray-800 text-base leading-snug group-hover:text-emerald-700 transition-colors line-clamp-1 mb-1">
             {product.name}
           </h3>
-          <p className="text-xs text-gray-400 font-medium mb-3">{product.unit}</p>
+          
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <p className="text-xs text-gray-400 font-medium">{product.unit}</p>
+            {product.highlights && (
+              <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100/60 px-2 py-0.5 rounded-md">
+                ✨ {Array.isArray(product.highlights) ? product.highlights[0] : String(product.highlights).split(',')[0]}
+              </span>
+            )}
+          </div>
         </div>
 
         <div>
@@ -137,6 +158,7 @@ export default function ProductCard({ product, onAddToCart, view = 'grid' }) {
               <span className="text-xs text-gray-400 line-through">₹{product.originalPrice}</span>
             )}
           </div>
+
 
           <div className="flex items-center gap-2">
             <div className="flex items-center bg-gray-100 rounded-xl p-1 border border-gray-200">
