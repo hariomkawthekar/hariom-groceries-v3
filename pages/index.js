@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import ProductCard from '@/components/ProductCard'
 import { motion, AnimatePresence } from 'framer-motion'
-import { FiGrid, FiList, FiZap, FiCheckCircle, FiShield, FiTag, FiChevronRight, FiFilter, FiRefreshCw } from 'react-icons/fi'
+import { FiGrid, FiList, FiZap, FiCheckCircle, FiShield, FiTag, FiChevronRight, FiFilter, FiRefreshCw, FiArrowDown } from 'react-icons/fi'
 import Link from 'next/link'
-import { DEFAULT_PRODUCTS, CATEGORY_DETAILS, SORT_OPTIONS } from '@/utils/constants'
+import { DEFAULT_PRODUCTS, CATEGORIES, FEATURED_CATEGORY_TILES, SORT_OPTIONS } from '@/utils/constants'
 
 export async function getStaticProps() {
   return {
@@ -60,9 +60,8 @@ export default function Home({ cartItems, setCartItems, initialProducts = DEFAUL
     })
   }
 
-  // Build complete categories list ensuring unique names (no duplicate 'All')
-  const categoriesInProducts = [...new Set(products.map(p => p.category))]
-  const allCategoryNames = Array.from(new Set(['All', ...CATEGORY_DETAILS.map(c => c.name), ...categoriesInProducts])).filter(Boolean)
+  // Get unique category names for sidebar filter
+  const allCategoryNames = Array.from(new Set(['All', ...CATEGORIES])).filter(Boolean)
   
   const searchedProducts = !internalSearchQuery.trim() 
     ? products 
@@ -72,11 +71,11 @@ export default function Home({ cartItems, setCartItems, initialProducts = DEFAUL
       )
   
   // Filtering logic:
-  // When "All" is selected, all categories are displayed!
-  // When a specific category is selected, ONLY items belonging to that category are displayed and other categories are hidden.
+  // When "All" is selected, all products are displayed.
+  // When a specific category (e.g., "Dairy, Bread & Eggs") is clicked, only items in that category are shown!
   const filteredProducts = selectedCategory === 'All' 
     ? searchedProducts 
-    : searchedProducts.filter(p => p.category === selectedCategory)
+    : searchedProducts.filter(p => p.category.toLowerCase() === selectedCategory.toLowerCase())
   
   const sortedProducts = [...filteredProducts].sort((a, b) => {
     if (sortBy === 'price-low') return a.price - b.price
@@ -86,10 +85,18 @@ export default function Home({ cartItems, setCartItems, initialProducts = DEFAUL
     return 0
   })
 
-  // Get product count per category
+  // Count products for category tile / sidebar
   const getCategoryCount = (catName) => {
     if (catName === 'All') return products.length
-    return products.filter(p => p.category === catName).length
+    return products.filter(p => p.category.toLowerCase() === catName.toLowerCase()).length
+  }
+
+  const handleCategoryTileClick = (categoryName) => {
+    setSelectedCategory(categoryName)
+    const el = document.getElementById('products-section')
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
   }
 
   return (
@@ -128,10 +135,7 @@ export default function Home({ cartItems, setCartItems, initialProducts = DEFAUL
                   <span className="text-xs font-bold">Code: <strong className="text-amber-300">HARIOM50</strong> for 20% OFF</span>
                 </div>
                 <button 
-                  onClick={() => {
-                    setSelectedCategory('All')
-                    window.scrollTo({ top: 500, behavior: 'smooth' })
-                  }}
+                  onClick={() => handleCategoryTileClick('All')}
                   className="bg-emerald-500 hover:bg-emerald-400 text-gray-950 px-6 py-2.5 rounded-xl font-bold text-sm shadow-lg hover:shadow-emerald-500/30 transition-all flex items-center gap-2"
                 >
                   <span>Explore All Products</span>
@@ -143,9 +147,9 @@ export default function Home({ cartItems, setCartItems, initialProducts = DEFAUL
             {/* Feature Highlights Grid */}
             <div className="lg:col-span-5 grid grid-cols-2 gap-3 pt-4 lg:pt-0">
               <div className="bg-white/10 backdrop-blur-md border border-white/15 p-4 rounded-2xl flex flex-col justify-center space-y-1">
-                <div className="text-2xl mb-1">🥬</div>
-                <h4 className="font-bold text-xs text-white">100% Fresh & Organic</h4>
-                <p className="text-[11px] text-emerald-200/80">Directly from farms</p>
+                <div className="text-2xl mb-1">🥛</div>
+                <h4 className="font-bold text-xs text-white">Fresh Dairy & Eggs</h4>
+                <p className="text-[11px] text-emerald-200/80">Milk, Paneer, Tofu & Eggs</p>
               </div>
               <div className="bg-white/10 backdrop-blur-md border border-white/15 p-4 rounded-2xl flex flex-col justify-center space-y-1">
                 <div className="text-2xl mb-1">⚡</div>
@@ -166,55 +170,91 @@ export default function Home({ cartItems, setCartItems, initialProducts = DEFAUL
           </div>
         </motion.div>
 
-        {/* Category Visual Strip Navigator */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 space-y-3">
+        {/* Blinkit / Instamart Style Interactive Category Tiles Grid */}
+        <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 animate-ping" />
-              <h2 className="text-lg font-bold text-gray-900 tracking-tight">Explore Categories</h2>
+            <div>
+              <h2 className="text-2xl font-black text-gray-900 tracking-tight flex items-center gap-2">
+                <span>Shop By Category</span>
+                <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                  Tap to view products
+                </span>
+              </h2>
+              <p className="text-xs text-gray-400 mt-1 font-medium">
+                Click any category tile below to view related products (e.g. Milk, Paneer, Tofu, Oils, Sauces)
+              </p>
             </div>
             {selectedCategory !== 'All' && (
               <button 
                 onClick={() => setSelectedCategory('All')}
-                className="text-xs font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 flex items-center gap-1.5 transition-colors"
+                className="text-xs font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 px-3.5 py-2 rounded-xl border border-emerald-200 flex items-center gap-1.5 transition-colors shadow-xs"
               >
-                <FiRefreshCw className="h-3 w-3" />
-                <span>Show All ({products.length})</span>
+                <FiRefreshCw className="h-3.5 w-3.5" />
+                <span>Show All Products ({products.length})</span>
               </button>
             )}
           </div>
 
-          <div className="flex items-center gap-2.5 overflow-x-auto pb-2 scrollbar-none">
-            {allCategoryNames.map((catName) => {
-              const meta = CATEGORY_DETAILS.find(c => c.name === catName) || { icon: '📦', name: catName }
-              const isSelected = selectedCategory === catName
-              const count = getCategoryCount(catName)
+          {/* Interactive Category Tiles */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5 sm:gap-4">
+            {FEATURED_CATEGORY_TILES.map((tile) => {
+              const isSelected = selectedCategory.toLowerCase() === tile.categoryKey.toLowerCase()
+              const count = getCategoryCount(tile.categoryKey)
 
               return (
-                <button
-                  key={catName}
-                  onClick={() => setSelectedCategory(catName)}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all duration-200 shadow-xs border ${
-                    isSelected
-                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-md ring-2 ring-emerald-300 scale-[1.02]'
-                      : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200'
+                <motion.div
+                  key={tile.id}
+                  whileHover={{ scale: 1.03, y: -3 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => handleCategoryTileClick(tile.categoryKey)}
+                  className={`cursor-pointer rounded-2xl p-4 transition-all duration-300 border flex flex-col justify-between relative overflow-hidden group shadow-xs ${
+                    isSelected 
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-lg ring-4 ring-emerald-200' 
+                      : `${tile.bgColor} shadow-sm hover:shadow-md`
                   }`}
                 >
-                  <span className="text-base leading-none">{meta.icon}</span>
-                  <span>{catName}</span>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
-                    isSelected ? 'bg-white/20 text-white' : 'bg-gray-200/80 text-gray-600'
-                  }`}>
-                    {count}
-                  </span>
-                </button>
+                  <div className="relative w-full pt-[75%] rounded-xl overflow-hidden mb-3 bg-white/70 backdrop-blur-sm p-2 flex items-center justify-center">
+                    <img 
+                      src={tile.image} 
+                      alt={tile.name}
+                      className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
+                    />
+                    {count > 0 && (
+                      <span className={`absolute top-1.5 right-1.5 px-2 py-0.5 rounded-full text-[10px] font-black shadow-xs ${
+                        isSelected ? 'bg-white text-emerald-800' : 'bg-gray-900/80 text-white'
+                      }`}>
+                        {count} items
+                      </span>
+                    )}
+                  </div>
+
+                  <div>
+                    <h3 className={`font-black text-sm leading-tight mb-1 ${
+                      isSelected ? 'text-white' : 'text-gray-900 group-hover:text-emerald-700'
+                    }`}>
+                      {tile.name}
+                    </h3>
+                    <p className={`text-[11px] leading-snug line-clamp-1 font-medium ${
+                      isSelected ? 'text-emerald-100' : 'text-gray-500'
+                    }`}>
+                      {tile.subtitle}
+                    </p>
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-between text-[11px] font-bold">
+                    <span className={isSelected ? 'text-emerald-200' : 'text-emerald-700'}>
+                      {isSelected ? 'Selected ✓' : 'View Items'}
+                    </span>
+                    <FiChevronRight className={`h-4 w-4 transition-transform ${isSelected ? 'text-white translate-x-1' : 'text-gray-400 group-hover:translate-x-1'}`} />
+                  </div>
+                </motion.div>
               )
             })}
           </div>
         </div>
 
         {/* Main Content Layout (Category Sidebar + Products Area) */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        <div id="products-section" className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start pt-4">
           
           {/* Category Sidebar */}
           <motion.aside 
@@ -223,25 +263,29 @@ export default function Home({ cartItems, setCartItems, initialProducts = DEFAUL
             className="lg:col-span-3 bg-white rounded-2xl p-5 shadow-sm border border-gray-100 space-y-4 sticky top-20"
           >
             <div className="flex items-center justify-between pb-3 border-b border-gray-100">
-              <Link href="/categories" className="flex items-center gap-2 group cursor-pointer">
+              <div className="flex items-center gap-2">
                 <FiFilter className="text-emerald-600 h-4 w-4" />
-                <h3 className="font-bold text-gray-900 text-sm group-hover:text-emerald-600 transition-colors">Category Filter</h3>
-              </Link>
-              <Link href="/categories" className="text-[11px] font-bold text-emerald-600 hover:underline">
-                View All &rarr;
-              </Link>
+                <h3 className="font-bold text-gray-900 text-sm">Category Filter</h3>
+              </div>
+              {selectedCategory !== 'All' && (
+                <button 
+                  onClick={() => setSelectedCategory('All')}
+                  className="text-[11px] font-bold text-emerald-600 hover:underline"
+                >
+                  Reset Filter
+                </button>
+              )}
             </div>
 
             <p className="text-xs text-gray-400 font-medium">
               {selectedCategory === 'All' 
-                ? 'All categories are currently visible.' 
-                : `Showing items only for "${selectedCategory}". Other categories are hidden.`}
+                ? 'Displaying all grocery items.' 
+                : `Showing items for "${selectedCategory}".`}
             </p>
 
             <div className="space-y-1.5 max-h-[500px] overflow-y-auto pr-1">
               {allCategoryNames.map((catName) => {
-                const meta = CATEGORY_DETAILS.find(c => c.name === catName) || { icon: '📦' }
-                const isSelected = selectedCategory === catName
+                const isSelected = selectedCategory.toLowerCase() === catName.toLowerCase()
                 const count = getCategoryCount(catName)
 
                 return (
@@ -254,10 +298,7 @@ export default function Home({ cartItems, setCartItems, initialProducts = DEFAUL
                         : 'bg-white text-gray-700 hover:bg-gray-50 border-gray-100 hover:border-gray-200'
                     }`}
                   >
-                    <div className="flex items-center gap-2.5">
-                      <span className="text-base">{meta.icon}</span>
-                      <span>{catName}</span>
-                    </div>
+                    <span className="truncate pr-2">{catName}</span>
                     <span className={`px-2 py-0.5 rounded-md text-[10px] font-black ${
                       isSelected ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'
                     }`}>
@@ -276,9 +317,9 @@ export default function Home({ cartItems, setCartItems, initialProducts = DEFAUL
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-wrap items-center justify-between gap-4">
               <div>
                 <h3 className="font-extrabold text-gray-900 text-lg flex items-center gap-2">
-                  <span>{selectedCategory === 'All' ? 'All Grocery Categories' : `${selectedCategory}`}</span>
+                  <span>{selectedCategory === 'All' ? 'All Grocery Items' : `${selectedCategory}`}</span>
                   <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
-                    {sortedProducts.length} items
+                    {sortedProducts.length} items available
                   </span>
                 </h3>
                 {internalSearchQuery.trim() && (
@@ -378,13 +419,13 @@ export default function Home({ cartItems, setCartItems, initialProducts = DEFAUL
                 className="text-center py-16 px-6 bg-white rounded-3xl shadow-sm border border-gray-100 my-4 space-y-4"
               >
                 <div className="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center text-4xl mx-auto shadow-inner">
-                  🥬
+                  🛒
                 </div>
                 <h3 className="text-xl font-bold text-gray-800">No products found in this category</h3>
                 <p className="text-gray-500 text-xs sm:text-sm max-w-md mx-auto">
                   {internalSearchQuery.trim() 
-                    ? `No matching grocery products found for "${internalSearchQuery}". Try clearing search keywords.`
-                    : `No items available right now under "${selectedCategory}". Click "Show All Categories" below.`}
+                    ? `No matching grocery products found for "${internalSearchQuery}".`
+                    : `No items available right now under "${selectedCategory}". Click "Show All Products" below.`}
                 </p>
                 <button
                   onClick={() => {
@@ -397,7 +438,7 @@ export default function Home({ cartItems, setCartItems, initialProducts = DEFAUL
                   className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded-xl font-bold text-xs shadow-md transition-all inline-flex items-center gap-2"
                 >
                   <FiRefreshCw />
-                  <span>Show All Categories</span>
+                  <span>Show All Products</span>
                 </button>
               </motion.div>
             )}
@@ -408,4 +449,5 @@ export default function Home({ cartItems, setCartItems, initialProducts = DEFAUL
     </div>
   )
 }
+
 
