@@ -3,7 +3,6 @@ export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000
 
 export const CATEGORIES = [
   'All',
-  'Greens',
   'Oil',
   'Dairy',
   'Chocolate',
@@ -17,7 +16,6 @@ export const CATEGORIES = [
 
 export const CATEGORY_DETAILS = [
   { id: 'All', name: 'All', icon: '🛒', color: 'from-emerald-500 to-teal-600', bgLight: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  { id: 'Greens', name: 'Greens', icon: '🥬', color: 'from-green-500 to-emerald-600', bgLight: 'bg-green-50 text-green-700 border-green-200' },
   { id: 'Oil', name: 'Oil', icon: '🛢️', color: 'from-amber-500 to-yellow-600', bgLight: 'bg-amber-50 text-amber-700 border-amber-200' },
   { id: 'Dairy', name: 'Dairy', icon: '🥛', color: 'from-blue-500 to-indigo-600', bgLight: 'bg-blue-50 text-blue-700 border-blue-200' },
   { id: 'Chocolate', name: 'Chocolate', icon: '🍫', color: 'from-amber-700 to-amber-900', bgLight: 'bg-amber-100 text-amber-900 border-amber-300' },
@@ -41,42 +39,6 @@ export const DELIVERY_FEE = 40
 export const FREE_DELIVERY_THRESHOLD = 499
 
 export const DEFAULT_PRODUCTS = [
-  {
-    id: 1,
-    name: 'Fresh Organic Palak (Spinach)',
-    category: 'Greens',
-    price: 30,
-    originalPrice: 40,
-    unit: '250g Bunch',
-    image: 'https://images.unsplash.com/photo-1576045057995-568f588f82fb?w=500',
-    inStock: true,
-    rating: 4.8,
-    ratingCount: 142
-  },
-  {
-    id: 2,
-    name: 'Fresh Coriander (Kothmir)',
-    category: 'Greens',
-    price: 20,
-    originalPrice: 25,
-    unit: '100g Bunch',
-    image: 'https://images.unsplash.com/photo-1588879460618-924a73752e89?w=500',
-    inStock: true,
-    rating: 4.9,
-    ratingCount: 88
-  },
-  {
-    id: 3,
-    name: 'Organic Methi (Fenugreek Leaves)',
-    category: 'Greens',
-    price: 25,
-    originalPrice: 35,
-    unit: '250g Bunch',
-    image: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=500',
-    inStock: true,
-    rating: 4.7,
-    ratingCount: 64
-  },
   {
     id: 4,
     name: 'Premium Basmati Rice',
