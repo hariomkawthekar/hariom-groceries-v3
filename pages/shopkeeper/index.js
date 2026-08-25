@@ -74,13 +74,17 @@ const INITIAL_FORM_STATE = {
 }
 
 export default function ShopkeeperDashboard({ shopkeeper }) {
+
   const router = useRouter();
   const fileInputRef = useRef(null);
   const galleryFileInputRef = useRef(null);
+  const categoryFileInputRef = useRef(null);
 
   const [activeTab, setActiveTab] = useState('add-product');
   const [productsList, setProductsList] = useState([]);
+  const [categoriesList, setCategoriesList] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
+  const [loadingCategories, setLoadingCategories] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -88,6 +92,16 @@ export default function ShopkeeperDashboard({ shopkeeper }) {
 
   // Add Product Form State
   const [formData, setFormData] = useState(INITIAL_FORM_STATE);
+
+  // Category Form State
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState(null);
+  const [deletingCategory, setDeletingCategory] = useState(null);
+  const [categoryForm, setCategoryForm] = useState({
+    name: '',
+    subtitle: '',
+    image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400'
+  });
 
   const loadProducts = async () => {
     setLoadingProducts(true);
@@ -104,8 +118,24 @@ export default function ShopkeeperDashboard({ shopkeeper }) {
     }
   };
 
+  const loadCategories = async () => {
+    setLoadingCategories(true);
+    try {
+      const res = await fetch('/api/categories');
+      if (res.ok) {
+        const data = await res.json();
+        setCategoriesList(data);
+      }
+    } catch (e) {
+      console.error("Failed to load categories:", e);
+    } finally {
+      setLoadingCategories(false);
+    }
+  };
+
   useEffect(() => {
     loadProducts();
+    loadCategories();
   }, []);
 
   const handleLogout = async () => {
@@ -125,6 +155,18 @@ export default function ShopkeeperDashboard({ shopkeeper }) {
       const reader = new FileReader();
       reader.onload = (event) => {
         setFormData(prev => ({ ...prev, image: event.target.result }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Handle Category Image File Upload
+  const handleCategoryImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setCategoryForm(prev => ({ ...prev, image: event.target.result }));
       };
       reader.readAsDataURL(file);
     }
@@ -201,12 +243,85 @@ export default function ShopkeeperDashboard({ shopkeeper }) {
     }
   };
 
+  // CATEGORY MODAL HANDLERS
+  const handleOpenAddCategoryModal = () => {
+    setEditingCategory(null);
+    setCategoryForm({
+      name: '',
+      subtitle: '',
+      image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400'
+    });
+    setIsCategoryModalOpen(true);
+  };
+
+  const handleOpenEditCategoryModal = (cat) => {
+    setEditingCategory(cat);
+    setCategoryForm({
+      name: cat.name || '',
+      subtitle: cat.subtitle || '',
+      image: cat.image || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400'
+    });
+    setIsCategoryModalOpen(true);
+  };
+
+  const handleSaveCategorySubmit = async (e) => {
+    e.preventDefault();
+    if (!categoryForm.name.trim()) return;
+
+    setSubmitting(true);
+    try {
+      const method = editingCategory ? 'PUT' : 'POST';
+      const payload = editingCategory 
+        ? { ...categoryForm, id: editingCategory.id, shopkeeperId: shopkeeper.shopkeeperId }
+        : { ...categoryForm, shopkeeperId: shopkeeper.shopkeeperId };
+
+      const res = await fetch('/api/categories', {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to save category');
+
+      setSuccessMessage(`🎉 Category "${categoryForm.name}" ${editingCategory ? 'updated' : 'created'} successfully! Live in Shop by Category.`);
+      setIsCategoryModalOpen(false);
+      loadCategories();
+    } catch (err) {
+      setErrorMessage(err.message || 'Failed to save category');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleConfirmDeleteCategory = async () => {
+    if (!deletingCategory) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch('/api/categories', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: deletingCategory.id })
+      });
+
+      if (res.ok) {
+        setSuccessMessage(`🗑️ Category "${deletingCategory.name}" removed successfully.`);
+        setDeletingCategory(null);
+        loadCategories();
+      }
+    } catch (e) {
+      console.error("Delete category error:", e);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const availableCategories = CATEGORIES.filter(c => c !== 'All');
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans">
       <Head>
-        <title>Shopkeeper Portal - Comprehensive Product Management</title>
+        <title>Shopkeeper Portal - Product & Category Management</title>
       </Head>
       
       {/* Top Header */}
@@ -258,6 +373,16 @@ export default function ShopkeeperDashboard({ shopkeeper }) {
             }`}
           >
             <span>➕ Add New Product</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('manage-categories')}
+            className={`px-5 py-2.5 rounded-xl font-bold text-xs transition flex items-center gap-2 ${
+              activeTab === 'manage-categories'
+                ? 'bg-emerald-600 text-white shadow-md'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <span>🏷️ Shop by Category ({categoriesList.length})</span>
           </button>
           <button
             onClick={() => setActiveTab('manage-products')}
@@ -776,9 +901,9 @@ export default function ShopkeeperDashboard({ shopkeeper }) {
               </div>
 
               {/* SECTION 7: BOTTOM ACTION BUTTONS */}
-              <div className="pt-6 border-t border-gray-200 flex flex-wrap items-center justify-between gap-4 sticky bottom-4 bg-white/95 backdrop-blur-md p-4 rounded-2xl shadow-xl border">
+              <div className="pt-6 border-t border-gray-200 flex flex-wrap items-center justify-between gap-4 sticky bottom-4 bg-white/95 backdrop-blur-md p-4 rounded-2xl shadow-xl border z-20">
                 <div className="text-xs font-bold text-gray-600">
-                  Total Price: <strong className="text-emerald-700 text-sm">₹{formData.price || '0'}</strong>
+                  Total Selling Price: <strong className="text-emerald-700 text-sm">₹{formData.price || '0'}</strong>
                   {formData.originalPrice && <span className="text-gray-400 line-through ml-2">₹{formData.originalPrice}</span>}
                 </div>
 
@@ -814,7 +939,79 @@ export default function ShopkeeperDashboard({ shopkeeper }) {
           </div>
         )}
 
-        {/* Tab 2: Inventory Catalog */}
+        {/* Tab 2: SHOP BY CATEGORY MANAGEMENT */}
+        {activeTab === 'manage-categories' && (
+          <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-gray-200 space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-gray-100 pb-4">
+              <div>
+                <h2 className="text-2xl font-black text-gray-900 tracking-tight flex items-center gap-2">
+                  <span>Shop by Category Studio</span>
+                  <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
+                    Live Customer Grid
+                  </span>
+                </h2>
+                <p className="text-xs text-gray-500 mt-1">
+                  Create, update, and manage product categories displayed on the customer website.
+                </p>
+              </div>
+
+              <button
+                onClick={handleOpenAddCategoryModal}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-5 py-2.5 rounded-xl text-xs transition shadow-md flex items-center gap-2"
+              >
+                <span>➕ Add New Category</span>
+              </button>
+            </div>
+
+            {loadingCategories ? (
+              <div className="text-center py-12 font-bold text-gray-500">Loading category grid...</div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+                {categoriesList.map((cat) => {
+                  const prodCount = productsList.filter(p => p.category.toLowerCase() === (cat.categoryKey || cat.name).toLowerCase()).length;
+
+                  return (
+                    <div key={cat.id} className="bg-gray-50 rounded-2xl border border-gray-200 p-4 flex flex-col justify-between space-y-3 group hover:shadow-md transition">
+                      <div>
+                        <div className="w-full h-36 relative bg-white rounded-xl overflow-hidden mb-3 border border-gray-200 p-2 flex items-center justify-center">
+                          <img 
+                            src={cat.image} 
+                            alt={cat.name} 
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400' }}
+                          />
+                          <span className="absolute top-2 right-2 bg-gray-900/80 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-xs">
+                            {prodCount} items
+                          </span>
+                        </div>
+
+                        <h3 className="font-black text-sm text-gray-900 leading-tight mb-0.5">{cat.name}</h3>
+                        <p className="text-[11px] text-gray-500 font-medium line-clamp-1">{cat.subtitle || 'Shop category items'}</p>
+                      </div>
+
+                      <div className="pt-2 border-t border-gray-200 flex items-center justify-between gap-2">
+                        <button
+                          onClick={() => handleOpenEditCategoryModal(cat)}
+                          className="flex-1 bg-white hover:bg-emerald-50 text-emerald-700 border border-gray-200 hover:border-emerald-300 font-bold px-3 py-1.5 rounded-xl text-xs transition"
+                        >
+                          ✏️ Edit
+                        </button>
+                        <button
+                          onClick={() => setDeletingCategory(cat)}
+                          className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold px-3 py-1.5 rounded-xl text-xs transition"
+                        >
+                          🗑️ Delete
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tab 3: Store Inventory Catalog */}
         {activeTab === 'manage-products' && (
           <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-gray-200 space-y-6">
             <div className="flex items-center justify-between border-b border-gray-100 pb-4">
@@ -862,8 +1059,158 @@ export default function ShopkeeperDashboard({ shopkeeper }) {
         )}
 
       </main>
+
+      {/* CATEGORY FORM MODAL (ADD & EDIT) */}
+      {isCategoryModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-6 shadow-2xl border border-gray-100 animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <h3 className="text-xl font-black text-gray-900">
+                {editingCategory ? `Edit Category: ${editingCategory.name}` : '➕ Add New Category'}
+              </h3>
+              <button 
+                onClick={() => setIsCategoryModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveCategorySubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Category Name *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Dairy, Bread & Eggs"
+                  className="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-xs font-bold focus:ring-2 focus:ring-emerald-500 bg-white"
+                  value={categoryForm.name}
+                  onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Category Subtitle / Description</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Milk, Paneer, Tofu & Eggs"
+                  className="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-500 bg-white"
+                  value={categoryForm.subtitle}
+                  onChange={(e) => setCategoryForm({ ...categoryForm, subtitle: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Category Image *</label>
+                <div className="flex gap-2 mb-2">
+                  <input
+                    type="text"
+                    required
+                    placeholder="Image URL (e.g. https://...)"
+                    className="flex-1 px-3.5 py-2 border border-gray-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-500 bg-white"
+                    value={categoryForm.image}
+                    onChange={(e) => setCategoryForm({ ...categoryForm, image: e.target.value })}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => categoryFileInputRef.current?.click()}
+                    className="bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap"
+                  >
+                    📷 Upload File
+                  </button>
+                  <input
+                    ref={categoryFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleCategoryImageUpload}
+                  />
+                </div>
+
+                {/* Live Image Preview */}
+                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-200">
+                  <div className="w-20 h-20 relative rounded-lg overflow-hidden border border-gray-200 bg-white flex items-center justify-center">
+                    <img 
+                      src={categoryForm.image} 
+                      alt="Category Preview" 
+                      className="w-full h-full object-cover"
+                      onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400' }}
+                    />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-gray-800 block">Live Preview</span>
+                    <span className="text-[10px] text-gray-400">Shows on customer homepage category tiles</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-gray-100 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsCategoryModalOpen(false)}
+                  className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold px-4 py-2 rounded-xl text-xs transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-6 py-2 rounded-xl text-xs transition shadow-md disabled:opacity-50"
+                >
+                  {submitting ? 'Saving...' : 'Save Category'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE CONFIRMATION DIALOG */}
+      {deletingCategory && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl border border-gray-100 text-center animate-in fade-in zoom-in duration-200">
+            <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center text-3xl mx-auto border border-rose-100">
+              ⚠️
+            </div>
+
+            <h3 className="text-lg font-black text-gray-900">Are you sure you want to delete this category?</h3>
+
+            <div className="bg-gray-50 p-3 rounded-2xl border border-gray-200 flex items-center gap-3 text-left">
+              <img src={deletingCategory.image} alt={deletingCategory.name} className="w-12 h-12 rounded-xl object-cover" />
+              <div>
+                <h4 className="font-bold text-xs text-gray-900">{deletingCategory.name}</h4>
+                <p className="text-[11px] text-gray-500">{deletingCategory.subtitle}</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-500 font-medium">
+              This will remove the category tile from customer homepage. Product listings will remain intact.
+            </p>
+
+            <div className="pt-2 flex items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => setDeletingCategory(null)}
+                className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold px-4 py-2.5 rounded-xl text-xs transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={handleConfirmDeleteCategory}
+                className="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-black px-4 py-2.5 rounded-xl text-xs transition shadow-md disabled:opacity-50"
+              >
+                {submitting ? 'Deleting...' : 'Yes, Delete Category'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
+
 
 

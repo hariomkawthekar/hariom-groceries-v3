@@ -17,6 +17,7 @@ export async function getStaticProps() {
 export default function Home({ cartItems, setCartItems, initialProducts = DEFAULT_PRODUCTS }) {
   const router = useRouter()
   const [products, setProducts] = useState(initialProducts)
+  const [categoryTiles, setCategoryTiles] = useState(FEATURED_CATEGORY_TILES)
   const [loading, setLoading] = useState(false)
   const [internalSearchQuery, setInternalSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('All')
@@ -26,9 +27,7 @@ export default function Home({ cartItems, setCartItems, initialProducts = DEFAUL
   useEffect(() => {
     fetch('/api/products')
       .then(res => {
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
-        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
       })
       .then(data => {
@@ -37,9 +36,19 @@ export default function Home({ cartItems, setCartItems, initialProducts = DEFAUL
         }
       })
       .catch(err => {
-        console.error("Fetch products error, using pre-rendered products:", err);
+        console.error("Fetch products error:", err);
       });
+
+    fetch('/api/categories')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          setCategoryTiles(data);
+        }
+      })
+      .catch(err => console.error("Fetch categories error:", err));
   }, [])
+
 
   // Sync search query from URL params
   useEffect(() => {
@@ -197,9 +206,10 @@ export default function Home({ cartItems, setCartItems, initialProducts = DEFAUL
 
           {/* Interactive Category Tiles */}
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5 sm:gap-4">
-            {FEATURED_CATEGORY_TILES.map((tile) => {
-              const isSelected = selectedCategory.toLowerCase() === tile.categoryKey.toLowerCase()
-              const count = getCategoryCount(tile.categoryKey)
+            {categoryTiles.map((tile) => {
+              const isSelected = selectedCategory.toLowerCase() === (tile.categoryKey || tile.name).toLowerCase()
+              const count = getCategoryCount(tile.categoryKey || tile.name)
+
 
               return (
                 <motion.div
