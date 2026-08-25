@@ -11,6 +11,7 @@ export default function Footer() {
         <div>
           <h4 className="font-semibold mb-4">Quick Links</h4>
           <ul className="space-y-2 text-gray-400">
+            <li><Link href="/shopkeeper/login" className="hover:text-white text-emerald-400 font-bold">🏪 Shopkeeper Portal</Link></li>
             <li><Link href="/about" className="hover:text-white">About Us</Link></li>
             <li><Link href="/contact" className="hover:text-white">Contact</Link></li>
             <li><Link href="/faq" className="hover:text-white">FAQ</Link></li>

@@ -62,6 +62,14 @@ export default function Header({ cartItemCount = 0, onCartClick, onSearch }) {
         {/* Right Nav */}
         <div className="flex items-center gap-3 sm:gap-5">
           <Link 
+            href="/shopkeeper/login" 
+            className="hidden md:flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3 py-2 rounded-xl transition-colors"
+          >
+            <span>🏪</span>
+            <span>Shopkeeper</span>
+          </Link>
+
+          <Link 
             href={currentUser ? '/profile' : '/login'} 
             className="hidden md:flex items-center gap-2 text-sm font-semibold text-gray-700 hover:text-emerald-600 px-3 py-2 rounded-xl hover:bg-emerald-50 transition-colors"
           >
