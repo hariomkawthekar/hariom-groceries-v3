@@ -62,21 +62,21 @@ export default function Home({ cartItems, setCartItems, initialProducts = DEFAUL
 
   // Get unique category names for sidebar filter
   const allCategoryNames = Array.from(new Set(['All', ...CATEGORIES])).filter(Boolean)
-  
-  const searchedProducts = !internalSearchQuery.trim() 
-    ? products 
-    : products.filter(p => 
-        p.name.toLowerCase().includes(internalSearchQuery.trim().toLowerCase()) ||
-        p.category.toLowerCase().includes(internalSearchQuery.trim().toLowerCase())
-      )
-  
+
+  const searchedProducts = !internalSearchQuery.trim()
+    ? products
+    : products.filter(p =>
+      p.name.toLowerCase().includes(internalSearchQuery.trim().toLowerCase()) ||
+      p.category.toLowerCase().includes(internalSearchQuery.trim().toLowerCase())
+    )
+
   // Filtering logic:
   // When "All" is selected, all products are displayed.
   // When a specific category (e.g., "Dairy, Bread & Eggs") is clicked, only items in that category are shown!
-  const filteredProducts = selectedCategory === 'All' 
-    ? searchedProducts 
+  const filteredProducts = selectedCategory === 'All'
+    ? searchedProducts
     : searchedProducts.filter(p => p.category.toLowerCase() === selectedCategory.toLowerCase())
-  
+
   const sortedProducts = [...filteredProducts].sort((a, b) => {
     if (sortBy === 'price-low') return a.price - b.price
     if (sortBy === 'price-high') return b.price - a.price
@@ -102,9 +102,9 @@ export default function Home({ cartItems, setCartItems, initialProducts = DEFAUL
   return (
     <div className="bg-slate-50/70 min-h-screen pb-20">
       <div className="max-w-7xl mx-auto px-4 py-6 space-y-8">
-        
+
         {/* Modern Hero Banner */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
@@ -134,7 +134,7 @@ export default function Home({ cartItems, setCartItems, initialProducts = DEFAUL
                   <FiTag className="text-amber-400 h-4 w-4" />
                   <span className="text-xs font-bold">Code: <strong className="text-amber-300">HARIOM50</strong> for 20% OFF</span>
                 </div>
-                <button 
+                <button
                   onClick={() => handleCategoryTileClick('All')}
                   className="bg-emerald-500 hover:bg-emerald-400 text-gray-950 px-6 py-2.5 rounded-xl font-bold text-sm shadow-lg hover:shadow-emerald-500/30 transition-all flex items-center gap-2"
                 >
@@ -148,8 +148,8 @@ export default function Home({ cartItems, setCartItems, initialProducts = DEFAUL
             <div className="lg:col-span-5 grid grid-cols-2 gap-3 pt-4 lg:pt-0">
               <div className="bg-white/10 backdrop-blur-md border border-white/15 p-4 rounded-2xl flex flex-col justify-center space-y-1">
                 <div className="text-2xl mb-1">🥛</div>
-                <h4 className="font-bold text-xs text-white">Fresh Dairy & Eggs</h4>
-                <p className="text-[11px] text-emerald-200/80">Milk, Paneer, Tofu & Eggs</p>
+                <h4 className="font-bold text-xs text-white">Fresh Dairy </h4>
+                <p className="text-[11px] text-emerald-200/80">Milk, Paneer, Tofu </p>
               </div>
               <div className="bg-white/10 backdrop-blur-md border border-white/15 p-4 rounded-2xl flex flex-col justify-center space-y-1">
                 <div className="text-2xl mb-1">⚡</div>
@@ -185,7 +185,7 @@ export default function Home({ cartItems, setCartItems, initialProducts = DEFAUL
               </p>
             </div>
             {selectedCategory !== 'All' && (
-              <button 
+              <button
                 onClick={() => setSelectedCategory('All')}
                 className="text-xs font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 px-3.5 py-2 rounded-xl border border-emerald-200 flex items-center gap-1.5 transition-colors shadow-xs"
               >
@@ -207,36 +207,32 @@ export default function Home({ cartItems, setCartItems, initialProducts = DEFAUL
                   whileHover={{ scale: 1.03, y: -3 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => handleCategoryTileClick(tile.categoryKey)}
-                  className={`cursor-pointer rounded-2xl p-4 transition-all duration-300 border flex flex-col justify-between relative overflow-hidden group shadow-xs ${
-                    isSelected 
-                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-lg ring-4 ring-emerald-200' 
+                  className={`cursor-pointer rounded-2xl p-4 transition-all duration-300 border flex flex-col justify-between relative overflow-hidden group shadow-xs ${isSelected
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-lg ring-4 ring-emerald-200'
                       : `${tile.bgColor} shadow-sm hover:shadow-md`
-                  }`}
+                    }`}
                 >
                   <div className="relative w-full pt-[75%] rounded-xl overflow-hidden mb-3 bg-white/70 backdrop-blur-sm p-2 flex items-center justify-center">
-                    <img 
-                      src={tile.image} 
+                    <img
+                      src={tile.image}
                       alt={tile.name}
-                      className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
+                      className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                     {count > 0 && (
-                      <span className={`absolute top-1.5 right-1.5 px-2 py-0.5 rounded-full text-[10px] font-black shadow-xs ${
-                        isSelected ? 'bg-white text-emerald-800' : 'bg-gray-900/80 text-white'
-                      }`}>
+                      <span className={`absolute top-1.5 right-1.5 px-2 py-0.5 rounded-full text-[10px] font-black shadow-xs ${isSelected ? 'bg-white text-emerald-800' : 'bg-gray-900/80 text-white'
+                        }`}>
                         {count} items
                       </span>
                     )}
                   </div>
 
                   <div>
-                    <h3 className={`font-black text-sm leading-tight mb-1 ${
-                      isSelected ? 'text-white' : 'text-gray-900 group-hover:text-emerald-700'
-                    }`}>
+                    <h3 className={`font-black text-sm leading-tight mb-1 ${isSelected ? 'text-white' : 'text-gray-900 group-hover:text-emerald-700'
+                      }`}>
                       {tile.name}
                     </h3>
-                    <p className={`text-[11px] leading-snug line-clamp-1 font-medium ${
-                      isSelected ? 'text-emerald-100' : 'text-gray-500'
-                    }`}>
+                    <p className={`text-[11px] leading-snug line-clamp-1 font-medium ${isSelected ? 'text-emerald-100' : 'text-gray-500'
+                      }`}>
                       {tile.subtitle}
                     </p>
                   </div>
@@ -255,9 +251,9 @@ export default function Home({ cartItems, setCartItems, initialProducts = DEFAUL
 
         {/* Main Content Layout (Category Sidebar + Products Area) */}
         <div id="products-section" className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start pt-4">
-          
+
           {/* Category Sidebar */}
-          <motion.aside 
+          <motion.aside
             initial={{ opacity: 0, x: -15 }}
             animate={{ opacity: 1, x: 0 }}
             className="lg:col-span-3 bg-white rounded-2xl p-5 shadow-sm border border-gray-100 space-y-4 sticky top-20"
@@ -268,7 +264,7 @@ export default function Home({ cartItems, setCartItems, initialProducts = DEFAUL
                 <h3 className="font-bold text-gray-900 text-sm">Category Filter</h3>
               </div>
               {selectedCategory !== 'All' && (
-                <button 
+                <button
                   onClick={() => setSelectedCategory('All')}
                   className="text-[11px] font-bold text-emerald-600 hover:underline"
                 >
@@ -278,8 +274,8 @@ export default function Home({ cartItems, setCartItems, initialProducts = DEFAUL
             </div>
 
             <p className="text-xs text-gray-400 font-medium">
-              {selectedCategory === 'All' 
-                ? 'Displaying all grocery items.' 
+              {selectedCategory === 'All'
+                ? 'Displaying all grocery items.'
                 : `Showing items for "${selectedCategory}".`}
             </p>
 
@@ -292,16 +288,14 @@ export default function Home({ cartItems, setCartItems, initialProducts = DEFAUL
                   <button
                     key={catName}
                     onClick={() => setSelectedCategory(catName)}
-                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold text-left transition-all duration-200 border ${
-                      isSelected
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold text-left transition-all duration-200 border ${isSelected
                         ? 'bg-emerald-600 text-white border-emerald-600 shadow-md transform translate-x-1'
                         : 'bg-white text-gray-700 hover:bg-gray-50 border-gray-100 hover:border-gray-200'
-                    }`}
+                      }`}
                   >
                     <span className="truncate pr-2">{catName}</span>
-                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-black ${
-                      isSelected ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'
-                    }`}>
+                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-black ${isSelected ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'
+                      }`}>
                       {count}
                     </span>
                   </button>
@@ -312,7 +306,7 @@ export default function Home({ cartItems, setCartItems, initialProducts = DEFAUL
 
           {/* Products Grid & Filters Bar Area */}
           <main className="lg:col-span-9 space-y-6">
-            
+
             {/* Header Toolbar: Sort & View Modes */}
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-wrap items-center justify-between gap-4">
               <div>
@@ -346,22 +340,20 @@ export default function Home({ cartItems, setCartItems, initialProducts = DEFAUL
                 <div className="flex items-center bg-gray-100 p-1 rounded-xl border border-gray-200">
                   <button
                     onClick={() => setView('grid')}
-                    className={`p-2 rounded-lg text-xs font-bold transition-all ${
-                      view === 'grid' 
-                        ? 'bg-white text-emerald-700 shadow-xs' 
+                    className={`p-2 rounded-lg text-xs font-bold transition-all ${view === 'grid'
+                        ? 'bg-white text-emerald-700 shadow-xs'
                         : 'text-gray-500 hover:text-gray-800'
-                    }`}
+                      }`}
                     title="Grid View"
                   >
                     <FiGrid className="h-4 w-4" />
                   </button>
                   <button
                     onClick={() => setView('list')}
-                    className={`p-2 rounded-lg text-xs font-bold transition-all ${
-                      view === 'list' 
-                        ? 'bg-white text-emerald-700 shadow-xs' 
+                    className={`p-2 rounded-lg text-xs font-bold transition-all ${view === 'list'
+                        ? 'bg-white text-emerald-700 shadow-xs'
                         : 'text-gray-500 hover:text-gray-800'
-                    }`}
+                      }`}
                     title="List View"
                   >
                     <FiList className="h-4 w-4" />
@@ -385,8 +377,8 @@ export default function Home({ cartItems, setCartItems, initialProducts = DEFAUL
             ) : (
               <motion.div
                 layout
-                className={view === 'grid' 
-                  ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6' 
+                className={view === 'grid'
+                  ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6'
                   : 'space-y-3'
                 }
               >
@@ -400,8 +392,8 @@ export default function Home({ cartItems, setCartItems, initialProducts = DEFAUL
                       exit={{ opacity: 0, scale: 0.95 }}
                       transition={{ duration: 0.2, delay: index * 0.03 }}
                     >
-                      <ProductCard 
-                        product={product} 
+                      <ProductCard
+                        product={product}
                         onAddToCart={handleAddToCart}
                         view={view}
                       />
@@ -413,7 +405,7 @@ export default function Home({ cartItems, setCartItems, initialProducts = DEFAUL
 
             {/* Empty State */}
             {!loading && sortedProducts.length === 0 && (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="text-center py-16 px-6 bg-white rounded-3xl shadow-sm border border-gray-100 my-4 space-y-4"
@@ -423,7 +415,7 @@ export default function Home({ cartItems, setCartItems, initialProducts = DEFAUL
                 </div>
                 <h3 className="text-xl font-bold text-gray-800">No products found in this category</h3>
                 <p className="text-gray-500 text-xs sm:text-sm max-w-md mx-auto">
-                  {internalSearchQuery.trim() 
+                  {internalSearchQuery.trim()
                     ? `No matching grocery products found for "${internalSearchQuery}".`
                     : `No items available right now under "${selectedCategory}". Click "Show All Products" below.`}
                 </p>

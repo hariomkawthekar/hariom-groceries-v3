@@ -3,7 +3,7 @@ export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000
 
 export const CATEGORIES = [
   'All',
-  'Dairy, Bread & Eggs',
+  'Dairy, Bread ',
   'Atta, Rice & Dal',
   'Masala, Oil & More',
   'Sauces & Spreads',
@@ -17,13 +17,13 @@ export const CATEGORIES = [
 
 export const FEATURED_CATEGORY_TILES = [
   {
-    id: 'dairy-bread-eggs',
-    name: 'Dairy, Bread & Eggs',
-    subtitle: 'Milk, Paneer, Tofu, Butter & Eggs',
+    id: 'dairy-bread',
+    name: 'Dairy, Bread ',
+    subtitle: 'Milk, Paneer, Tofu, Butter ',
     image: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=400',
     bgColor: 'bg-blue-50/90 hover:bg-blue-100 border-blue-200 text-blue-900',
     categoryKey: 'Dairy, Bread & Eggs',
-    keywords: ['dairy', 'milk', 'paneer', 'tofu', 'butter', 'bread', 'eggs']
+    keywords: ['dairy', 'milk', 'paneer', 'tofu', 'butter', 'bread']
   },
   {
     id: 'masala-oil',
@@ -413,4 +413,4 @@ export const DEFAULT_PRODUCTS = [
     rating: 4.7,
     ratingCount: 390
   }
-];
+];
