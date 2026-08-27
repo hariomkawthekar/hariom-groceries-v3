@@ -1,164 +1,309 @@
-import { FEATURED_CATEGORY_TILES } from '../../utils/constants';
-import prisma from '../../lib/prisma';
+import fs from 'fs';
+import path from 'path';
+import { FEATURED_CATEGORY_TILES } from '../../utils/constants.js';
+import { supabase, isSupabaseConfigured } from '../../utils/supabaseClient.js';
 
-if (!global.customCategories) {
-  global.customCategories = [];
+const DATA_DIR = path.join(process.cwd(), 'data');
+const FILE_PATH = path.join(DATA_DIR, 'categories.json');
+const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads', 'categories');
+
+// Helper to ensure directories exist
+function ensureDirs() {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+  if (!fs.existsSync(UPLOAD_DIR)) {
+    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+  }
+}
+
+// Helper to read custom categories from disk
+function readCustomCategoriesFromFile() {
+  try {
+    ensureDirs();
+    if (fs.existsSync(FILE_PATH)) {
+      const fileData = fs.readFileSync(FILE_PATH, 'utf8');
+      const parsed = JSON.parse(fileData);
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
+    }
+  } catch (err) {
+    console.error('Error reading custom categories file:', err);
+  }
+  return [];
+}
+
+// Helper to write custom categories to disk
+function writeCustomCategoriesToFile(categories) {
+  try {
+    ensureDirs();
+    fs.writeFileSync(FILE_PATH, JSON.stringify(categories, null, 2), 'utf8');
+  } catch (err) {
+    console.error('Error writing custom categories file:', err);
+  }
+}
+
+// Helper to handle base64 image saving
+function processCategoryImage(imageDataUrl, categoryId) {
+  if (!imageDataUrl || typeof imageDataUrl !== 'string') {
+    return 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400';
+  }
+
+  const trimmed = imageDataUrl.trim();
+  if (!trimmed.startsWith('data:image/')) {
+    return trimmed;
+  }
+
+  try {
+    ensureDirs();
+    const match = trimmed.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
+    if (!match) {
+      return 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400';
+    }
+
+    let ext = match[1].toLowerCase();
+    if (ext === 'jpeg') ext = 'jpg';
+    const base64Data = match[2];
+    const buffer = Buffer.from(base64Data, 'base64');
+
+    const fileName = `${categoryId || 'cat-' + Date.now()}.${ext}`;
+    const filePath = path.join(UPLOAD_DIR, fileName);
+    fs.writeFileSync(filePath, buffer);
+
+    return `/uploads/categories/${fileName}`;
+  } catch (error) {
+    console.error('Failed to process base64 image:', error);
+    return 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400';
+  }
+}
+
+// Sync helper between DB, file, and memory
+async function getStoredCustomCategories() {
+  let categories = readCustomCategoriesFromFile();
+
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const { data, error } = await supabase.from('categories').select('*');
+      if (!error && Array.isArray(data) && data.length > 0) {
+        categories = data;
+        writeCustomCategoriesToFile(categories);
+      }
+    } catch (dbErr) {
+      console.warn('Supabase fetch error, fallback to file storage:', dbErr.message || dbErr);
+    }
+  }
+
+  global.customCategories = categories;
+  return categories;
+}
+
+// Save helper to persist to both file and Supabase if available
+async function saveCustomCategories(categories) {
+  global.customCategories = categories;
+  writeCustomCategoriesToFile(categories);
 }
 
 export default async function handler(req, res) {
   const { method } = req;
 
-  // GET: Return all active category tiles (Shopkeeper added + default presets)
+  // GET: Return all active categories (custom shopkeeper + default preset tiles)
   if (method === 'GET') {
     try {
-      if (prisma && prisma.category) {
-        const dbCategories = await prisma.category.findMany().catch(() => []);
-        if (dbCategories && dbCategories.length > 0) {
-          const merged = [...global.customCategories, ...dbCategories];
-          return res.status(200).json(merged);
-        }
-      }
-    } catch (e) {
-      console.error("DB categories fetch error:", e);
-    }
+      const customCats = await getStoredCustomCategories();
+      
+      // Filter out presets overridden by custom categories
+      const customNames = new Set(customCats.map(c => (c.name || '').trim().toLowerCase()));
+      const customIds = new Set(customCats.map(c => c.id));
 
-    // Merge custom shopkeeper categories at top + default preset tiles
-    const allCategories = [...global.customCategories, ...FEATURED_CATEGORY_TILES];
-    return res.status(200).json(allCategories);
+      const filteredPresets = FEATURED_CATEGORY_TILES.filter(preset => 
+        !customIds.has(preset.id) && !customNames.has((preset.name || '').trim().toLowerCase())
+      );
+
+      const merged = [...customCats, ...filteredPresets];
+      return res.status(200).json(merged);
+    } catch (error) {
+      console.error('GET categories error:', error);
+      return res.status(500).json({ message: 'Failed to fetch categories.' });
+    }
   }
 
-  // POST: Add New Category
+  // POST: Create New Category
   if (method === 'POST') {
     try {
-      const { name, image, subtitle, shopkeeperId } = req.body;
+      const { name, image, subtitle, shopkeeperId } = req.body || {};
 
       if (!name || !name.trim()) {
         return res.status(400).json({ message: 'Category Name is required.' });
       }
 
+      const trimmedName = name.trim();
+      const lowerName = trimmedName.toLowerCase();
+
+      const existingCustom = await getStoredCustomCategories();
+
+      // Check duplicates against custom categories and preset tiles
+      const isDuplicateCustom = existingCustom.some(c => (c.name || '').trim().toLowerCase() === lowerName);
+      const isDuplicatePreset = FEATURED_CATEGORY_TILES.some(c => (c.name || '').trim().toLowerCase() === lowerName);
+
+      if (isDuplicateCustom || isDuplicatePreset) {
+        return res.status(400).json({ 
+          message: `Category "${trimmedName}" already exists. Please use a unique category name.` 
+        });
+      }
+
+      const categoryId = `cat-${Date.now()}`;
+      const processedImage = processCategoryImage(image, categoryId);
       const now = new Date().toISOString();
+
       const newCategory = {
-        id: `cat-${Date.now()}`,
-        name: name.trim(),
-        categoryKey: name.trim(),
+        id: categoryId,
+        name: trimmedName,
+        categoryKey: trimmedName,
         subtitle: subtitle ? subtitle.trim() : 'Fresh items in store',
-        image: image && image.trim() ? image.trim() : 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400',
+        image: processedImage,
         bgColor: 'bg-emerald-50/90 hover:bg-emerald-100 border-emerald-200 text-emerald-900',
         shopkeeperId: shopkeeperId || 'SK101',
         createdAt: now,
         updatedAt: now
       };
 
-      if (prisma && prisma.category) {
+      // Try inserting into Supabase if available
+      if (isSupabaseConfigured && supabase) {
         try {
-          await prisma.category.create({ data: newCategory }).catch(() => {});
-        } catch (dbErr) {
-          console.error("Prisma category insert error:", dbErr);
+          const { error } = await supabase.from('categories').insert([newCategory]);
+          if (error) {
+            console.warn('Supabase insert notice (continuing with backend store):', error.message);
+          }
+        } catch (sbErr) {
+          console.warn('Supabase insert exception:', sbErr);
         }
       }
 
-      global.customCategories.unshift(newCategory);
+      const updatedList = [newCategory, ...existingCustom];
+      await saveCustomCategories(updatedList);
 
       return res.status(201).json({
-        message: 'Category created successfully! Live in Shop by Category.',
+        message: `Category "${trimmedName}" created successfully!`,
         category: newCategory
       });
     } catch (error) {
-      console.error("Add Category Error:", error);
-      return res.status(500).json({ message: 'Failed to save category.' });
+      console.error('POST category error:', error);
+      return res.status(500).json({ message: 'Failed to save category to database.' });
     }
   }
 
-  // PUT: Edit Existing Category
+  // PUT: Update Existing Category
   if (method === 'PUT') {
     try {
-      const { id, name, image, subtitle, shopkeeperId } = req.body;
+      const { id, name, image, subtitle, shopkeeperId } = req.body || {};
 
       if (!id) {
         return res.status(400).json({ message: 'Category ID is required for editing.' });
       }
 
+      const existingCustom = await getStoredCustomCategories();
+      const trimmedName = name ? name.trim() : '';
+
+      if (trimmedName) {
+        const lowerName = trimmedName.toLowerCase();
+        // Check duplicate name on another category ID
+        const duplicateCustom = existingCustom.some(c => c.id !== id && (c.name || '').trim().toLowerCase() === lowerName);
+        const duplicatePreset = FEATURED_CATEGORY_TILES.some(c => c.id !== id && (c.name || '').trim().toLowerCase() === lowerName);
+
+        if (duplicateCustom || duplicatePreset) {
+          return res.status(400).json({
+            message: `Another category with name "${trimmedName}" already exists.`
+          });
+        }
+      }
+
       const now = new Date().toISOString();
       let updatedCategory = null;
 
-      // Update in global custom categories list
-      const index = global.customCategories.findIndex(c => c.id === id);
+      const index = existingCustom.findIndex(c => c.id === id);
       if (index >= 0) {
-        global.customCategories[index] = {
-          ...global.customCategories[index],
-          name: name ? name.trim() : global.customCategories[index].name,
-          categoryKey: name ? name.trim() : global.customCategories[index].categoryKey,
-          image: image ? image.trim() : global.customCategories[index].image,
-          subtitle: subtitle ? subtitle.trim() : global.customCategories[index].subtitle,
+        const oldCat = existingCustom[index];
+        const newImageUrl = image ? processCategoryImage(image, id) : oldCat.image;
+
+        updatedCategory = {
+          ...oldCat,
+          name: trimmedName || oldCat.name,
+          categoryKey: trimmedName || oldCat.categoryKey,
+          subtitle: subtitle !== undefined ? subtitle.trim() : oldCat.subtitle,
+          image: newImageUrl,
+          shopkeeperId: shopkeeperId || oldCat.shopkeeperId,
           updatedAt: now
         };
-        updatedCategory = global.customCategories[index];
+        existingCustom[index] = updatedCategory;
       } else {
-        // If editing a preset category tile, create an override entry in customCategories
+        // If editing a preset tile, create an override entry in custom categories
         const presetIndex = FEATURED_CATEGORY_TILES.findIndex(c => c.id === id);
         if (presetIndex >= 0) {
           const preset = FEATURED_CATEGORY_TILES[presetIndex];
-          const newOverride = {
+          const newImageUrl = image ? processCategoryImage(image, id) : preset.image;
+
+          updatedCategory = {
             ...preset,
-            name: name ? name.trim() : preset.name,
-            categoryKey: name ? name.trim() : preset.categoryKey,
-            image: image ? image.trim() : preset.image,
-            subtitle: subtitle ? subtitle.trim() : preset.subtitle,
+            id: preset.id,
+            name: trimmedName || preset.name,
+            categoryKey: trimmedName || preset.categoryKey,
+            subtitle: subtitle !== undefined ? subtitle.trim() : preset.subtitle,
+            image: newImageUrl,
+            shopkeeperId: shopkeeperId || 'SK101',
             updatedAt: now
           };
-          global.customCategories.unshift(newOverride);
-          updatedCategory = newOverride;
+          existingCustom.unshift(updatedCategory);
+        } else {
+          return res.status(404).json({ message: 'Category not found.' });
         }
       }
 
-      if (prisma && prisma.category) {
+      if (isSupabaseConfigured && supabase) {
         try {
-          await prisma.category.update({
-            where: { id },
-            data: {
-              name: name ? name.trim() : undefined,
-              image: image ? image.trim() : undefined,
-              subtitle: subtitle ? subtitle.trim() : undefined,
-              updatedAt: now
-            }
-          }).catch(() => {});
-        } catch (dbErr) {
-          console.error("Prisma category update error:", dbErr);
+          await supabase.from('categories').upsert([updatedCategory]);
+        } catch (sbErr) {
+          console.warn('Supabase upsert notice:', sbErr);
         }
       }
+
+      await saveCustomCategories(existingCustom);
 
       return res.status(200).json({
         message: 'Category updated successfully!',
         category: updatedCategory
       });
     } catch (error) {
-      console.error("Edit Category Error:", error);
+      console.error('PUT category error:', error);
       return res.status(500).json({ message: 'Failed to update category.' });
     }
   }
 
-  // DELETE: Remove Category
+  // DELETE: Delete Category
   if (method === 'DELETE') {
     try {
-      const { id } = req.body || req.query;
+      const { id } = req.body || req.query || {};
 
       if (!id) {
         return res.status(400).json({ message: 'Category ID is required for deletion.' });
       }
 
-      global.customCategories = global.customCategories.filter(c => c.id !== id);
+      const existingCustom = await getStoredCustomCategories();
+      const filtered = existingCustom.filter(c => c.id !== id);
 
-      if (prisma && prisma.category) {
+      if (isSupabaseConfigured && supabase) {
         try {
-          await prisma.category.delete({ where: { id } }).catch(() => {});
-        } catch (dbErr) {
-          console.error("Prisma category delete error:", dbErr);
+          await supabase.from('categories').delete().eq('id', id);
+        } catch (sbErr) {
+          console.warn('Supabase delete notice:', sbErr);
         }
       }
 
+      await saveCustomCategories(filtered);
+
       return res.status(200).json({ message: 'Category deleted successfully.' });
     } catch (error) {
-      console.error("Delete Category Error:", error);
+      console.error('DELETE category error:', error);
       return res.status(500).json({ message: 'Failed to delete category.' });
     }
   }

@@ -21,7 +21,7 @@ export async function getServerSideProps(context) {
   try {
     const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-shopkeeper-key-1234';
     const decoded = jwt.verify(token, JWT_SECRET);
-    
+
     return {
       props: { shopkeeper: decoded }
     }
@@ -97,6 +97,7 @@ export default function ShopkeeperDashboard({ shopkeeper }) {
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
   const [deletingCategory, setDeletingCategory] = useState(null);
+  const [categoryModalError, setCategoryModalError] = useState('');
   const [categoryForm, setCategoryForm] = useState({
     name: '',
     subtitle: '',
@@ -230,7 +231,7 @@ export default function ShopkeeperDashboard({ shopkeeper }) {
       }
 
       setSuccessMessage(`🎉 "${data.product.name}" saved successfully! Live on Home Page & Category: ${data.product.category}.`);
-      
+
       if (addAnother) {
         setFormData(INITIAL_FORM_STATE);
       }
@@ -246,6 +247,7 @@ export default function ShopkeeperDashboard({ shopkeeper }) {
   // CATEGORY MODAL HANDLERS
   const handleOpenAddCategoryModal = () => {
     setEditingCategory(null);
+    setCategoryModalError('');
     setCategoryForm({
       name: '',
       subtitle: '',
@@ -256,6 +258,7 @@ export default function ShopkeeperDashboard({ shopkeeper }) {
 
   const handleOpenEditCategoryModal = (cat) => {
     setEditingCategory(cat);
+    setCategoryModalError('');
     setCategoryForm({
       name: cat.name || '',
       subtitle: cat.subtitle || '',
@@ -269,9 +272,11 @@ export default function ShopkeeperDashboard({ shopkeeper }) {
     if (!categoryForm.name.trim()) return;
 
     setSubmitting(true);
+    setCategoryModalError('');
+    setErrorMessage('');
     try {
       const method = editingCategory ? 'PUT' : 'POST';
-      const payload = editingCategory 
+      const payload = editingCategory
         ? { ...categoryForm, id: editingCategory.id, shopkeeperId: shopkeeper.shopkeeperId }
         : { ...categoryForm, shopkeeperId: shopkeeper.shopkeeperId };
 
@@ -286,8 +291,9 @@ export default function ShopkeeperDashboard({ shopkeeper }) {
 
       setSuccessMessage(`🎉 Category "${categoryForm.name}" ${editingCategory ? 'updated' : 'created'} successfully! Live in Shop by Category.`);
       setIsCategoryModalOpen(false);
-      loadCategories();
+      await loadCategories();
     } catch (err) {
+      setCategoryModalError(err.message || 'Failed to save category');
       setErrorMessage(err.message || 'Failed to save category');
     } finally {
       setSubmitting(false);
@@ -323,7 +329,7 @@ export default function ShopkeeperDashboard({ shopkeeper }) {
       <Head>
         <title>Shopkeeper Portal - Product & Category Management</title>
       </Head>
-      
+
       {/* Top Header */}
       <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-30">
         <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
@@ -349,7 +355,7 @@ export default function ShopkeeperDashboard({ shopkeeper }) {
             >
               <span>🌐 View Live Website</span>
             </Link>
-            <button 
+            <button
               onClick={handleLogout}
               className="bg-rose-600 text-white px-4 py-2 rounded-xl text-xs font-bold shadow hover:bg-rose-700 transition"
             >
@@ -358,39 +364,36 @@ export default function ShopkeeperDashboard({ shopkeeper }) {
           </div>
         </div>
       </header>
-      
+
       {/* Main Container */}
       <main className="flex-grow max-w-7xl w-full mx-auto py-8 px-4 sm:px-6 lg:px-8 space-y-6">
-        
+
         {/* Navigation Tabs */}
         <div className="bg-white p-2 rounded-2xl shadow-sm border border-gray-200 flex flex-wrap items-center gap-2">
           <button
             onClick={() => setActiveTab('add-product')}
-            className={`px-5 py-2.5 rounded-xl font-bold text-xs transition flex items-center gap-2 ${
-              activeTab === 'add-product'
-                ? 'bg-emerald-600 text-white shadow-md'
-                : 'text-gray-600 hover:bg-gray-100'
-            }`}
+            className={`px-5 py-2.5 rounded-xl font-bold text-xs transition flex items-center gap-2 ${activeTab === 'add-product'
+              ? 'bg-emerald-600 text-white shadow-md'
+              : 'text-gray-600 hover:bg-gray-100'
+              }`}
           >
             <span>➕ Add New Product</span>
           </button>
           <button
             onClick={() => setActiveTab('manage-categories')}
-            className={`px-5 py-2.5 rounded-xl font-bold text-xs transition flex items-center gap-2 ${
-              activeTab === 'manage-categories'
-                ? 'bg-emerald-600 text-white shadow-md'
-                : 'text-gray-600 hover:bg-gray-100'
-            }`}
+            className={`px-5 py-2.5 rounded-xl font-bold text-xs transition flex items-center gap-2 ${activeTab === 'manage-categories'
+              ? 'bg-emerald-600 text-white shadow-md'
+              : 'text-gray-600 hover:bg-gray-100'
+              }`}
           >
             <span>🏷️ Shop by Category ({categoriesList.length})</span>
           </button>
           <button
             onClick={() => setActiveTab('manage-products')}
-            className={`px-5 py-2.5 rounded-xl font-bold text-xs transition flex items-center gap-2 ${
-              activeTab === 'manage-products'
-                ? 'bg-emerald-600 text-white shadow-md'
-                : 'text-gray-600 hover:bg-gray-100'
-            }`}
+            className={`px-5 py-2.5 rounded-xl font-bold text-xs transition flex items-center gap-2 ${activeTab === 'manage-products'
+              ? 'bg-emerald-600 text-white shadow-md'
+              : 'text-gray-600 hover:bg-gray-100'
+              }`}
           >
             <span>📦 Store Inventory ({productsList.length})</span>
           </button>
@@ -428,7 +431,7 @@ export default function ShopkeeperDashboard({ shopkeeper }) {
                   <span>{successMessage}</span>
                 </p>
                 <div className="pt-2 flex items-center gap-3">
-                  <Link 
+                  <Link
                     href="/"
                     target="_blank"
                     className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md transition inline-flex items-center gap-1.5"
@@ -454,7 +457,7 @@ export default function ShopkeeperDashboard({ shopkeeper }) {
             )}
 
             <form onSubmit={(e) => handleSaveProduct(e, false)} className="space-y-8">
-              
+
               {/* SECTION 1: BASIC PRODUCT INFORMATION */}
               <div className="space-y-4">
                 <h3 className="text-sm font-black uppercase text-emerald-800 tracking-wider flex items-center gap-2 border-b pb-2">
@@ -533,11 +536,11 @@ export default function ShopkeeperDashboard({ shopkeeper }) {
                 </h3>
 
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-start">
-                  
+
                   {/* Main Product Image Control */}
                   <div className="md:col-span-6 space-y-3">
                     <label className="block text-xs font-bold text-gray-700">Main Cover Image *</label>
-                    
+
                     <div className="flex gap-2">
                       <input
                         type="text"
@@ -585,10 +588,10 @@ export default function ShopkeeperDashboard({ shopkeeper }) {
                   {/* Main Image Live Preview Box */}
                   <div className="md:col-span-6 flex items-center gap-4 bg-white p-3 rounded-xl border border-gray-200">
                     <div className="w-24 h-24 relative rounded-xl overflow-hidden border border-gray-100 flex items-center justify-center bg-gray-50 flex-shrink-0">
-                      <img 
-                        src={formData.image} 
-                        alt="Main Preview" 
-                        className="w-full h-full object-contain p-1" 
+                      <img
+                        src={formData.image}
+                        alt="Main Preview"
+                        className="w-full h-full object-contain p-1"
                         onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500' }}
                       />
                     </div>
@@ -609,7 +612,7 @@ export default function ShopkeeperDashboard({ shopkeeper }) {
                 {/* Additional Gallery Images */}
                 <div className="space-y-3 pt-3 border-t border-gray-200">
                   <label className="block text-xs font-bold text-gray-700">Additional Product Gallery Images (Optional)</label>
-                  
+
                   <div className="flex flex-wrap items-center gap-2">
                     <input
                       type="text"
@@ -974,9 +977,9 @@ export default function ShopkeeperDashboard({ shopkeeper }) {
                     <div key={cat.id} className="bg-gray-50 rounded-2xl border border-gray-200 p-4 flex flex-col justify-between space-y-3 group hover:shadow-md transition">
                       <div>
                         <div className="w-full h-36 relative bg-white rounded-xl overflow-hidden mb-3 border border-gray-200 p-2 flex items-center justify-center">
-                          <img 
-                            src={cat.image} 
-                            alt={cat.name} 
+                          <img
+                            src={cat.image}
+                            alt={cat.name}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                             onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400' }}
                           />
@@ -1045,7 +1048,7 @@ export default function ShopkeeperDashboard({ shopkeeper }) {
                     </div>
 
                     <h3 className="font-bold text-xs text-gray-900 line-clamp-1">{prod.name}</h3>
-                    
+
                     <div className="flex items-center justify-between text-xs">
                       <span className="font-black text-emerald-700">₹{prod.price}</span>
                       <span className="text-[11px] text-gray-500 line-through">₹{prod.originalPrice}</span>
@@ -1068,7 +1071,7 @@ export default function ShopkeeperDashboard({ shopkeeper }) {
               <h3 className="text-xl font-black text-gray-900">
                 {editingCategory ? `Edit Category: ${editingCategory.name}` : '➕ Add New Category'}
               </h3>
-              <button 
+              <button
                 onClick={() => setIsCategoryModalOpen(false)}
                 className="text-gray-400 hover:text-gray-600 text-lg font-bold"
               >
@@ -1077,6 +1080,13 @@ export default function ShopkeeperDashboard({ shopkeeper }) {
             </div>
 
             <form onSubmit={handleSaveCategorySubmit} className="space-y-4">
+              {categoryModalError && (
+                <div className="bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold p-3 rounded-xl flex items-center gap-2">
+                  <span>⚠️</span>
+                  <span>{categoryModalError}</span>
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">Category Name *</label>
                 <input
@@ -1130,9 +1140,9 @@ export default function ShopkeeperDashboard({ shopkeeper }) {
                 {/* Live Image Preview */}
                 <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-200">
                   <div className="w-20 h-20 relative rounded-lg overflow-hidden border border-gray-200 bg-white flex items-center justify-center">
-                    <img 
-                      src={categoryForm.image} 
-                      alt="Category Preview" 
+                    <img
+                      src={categoryForm.image}
+                      alt="Category Preview"
                       className="w-full h-full object-cover"
                       onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400' }}
                     />

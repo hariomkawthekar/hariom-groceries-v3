@@ -2,7 +2,7 @@ import { createServerClient, serializeCookieHeader } from '@supabase/ssr'
 
 export function createClient(req, res) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || ''
 
   if (!url || !key || url.includes('placeholder') || !url.startsWith('https://')) {
     return null

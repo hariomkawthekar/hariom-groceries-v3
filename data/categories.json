@@ -1,0 +1,13 @@
+[
+  {
+    "id": "cat-1787815991031",
+    "name": "Dairy Products",
+    "categoryKey": "Dairy Products",
+    "subtitle": "Fresh Milk, Paneer & Butter",
+    "image": "/uploads/categories/cat-1787815991031.png",
+    "bgColor": "bg-emerald-50/90 hover:bg-emerald-100 border-emerald-200 text-emerald-900",
+    "shopkeeperId": "SK101",
+    "createdAt": "2026-08-27T07:33:11.032Z",
+    "updatedAt": "2026-08-27T07:33:11.032Z"
+  }
+]
