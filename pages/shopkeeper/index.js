@@ -92,6 +92,8 @@ export default function ShopkeeperDashboard({ shopkeeper }) {
 
   // Add Product Form State
   const [formData, setFormData] = useState(INITIAL_FORM_STATE);
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [deletingProduct, setDeletingProduct] = useState(null);
 
   // Category Form State
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -218,10 +220,13 @@ export default function ShopkeeperDashboard({ shopkeeper }) {
     setSubmitting(true);
 
     try {
+      const method = editingProduct ? 'PUT' : 'POST';
+      const payload = editingProduct ? { ...formData, id: editingProduct.id } : formData;
+
       const res = await fetch('/api/products', {
-        method: 'POST',
+        method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(payload)
       });
 
       const data = await res.json();
@@ -230,15 +235,72 @@ export default function ShopkeeperDashboard({ shopkeeper }) {
         throw new Error(data.message || 'Failed to save product');
       }
 
-      setSuccessMessage(`🎉 "${data.product.name}" saved successfully! Live on Home Page & Category: ${data.product.category}.`);
+      setSuccessMessage(`🎉 Product "${data.product.name}" ${editingProduct ? 'updated' : 'saved'} successfully! Live on Home Page & Category: ${data.product.category}.`);
 
-      if (addAnother) {
+      if (addAnother || editingProduct) {
         setFormData(INITIAL_FORM_STATE);
+        setEditingProduct(null);
       }
 
       loadProducts();
     } catch (err) {
       setErrorMessage(err.message || 'Something went wrong while saving the product.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleStartEditProduct = (prod) => {
+    setEditingProduct(prod);
+    setFormData({
+      name: prod.name || '',
+      brand: prod.brand || '',
+      description: prod.description || '',
+      category: prod.category || 'Dairy, Bread & Eggs',
+      subcategory: prod.subcategory || '',
+      price: prod.price ? String(prod.price) : '',
+      originalPrice: prod.originalPrice ? String(prod.originalPrice) : '',
+      gst: prod.gst !== undefined ? String(prod.gst) : '0',
+      stockQuantity: prod.stockQuantity !== undefined ? String(prod.stockQuantity) : '50',
+      unit: prod.unit || 'packet',
+      minQuantity: prod.minQuantity !== undefined ? String(prod.minQuantity) : '1',
+      maxQuantity: prod.maxQuantity !== undefined ? String(prod.maxQuantity) : '10',
+      image: prod.image || 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=500',
+      galleryImages: Array.isArray(prod.galleryImages) ? prod.galleryImages : [],
+      rating: prod.rating !== undefined ? String(prod.rating) : '4.5',
+      ratingCount: prod.ratingCount !== undefined ? String(prod.ratingCount) : '125',
+      highlights: Array.isArray(prod.highlights) ? prod.highlights.join(', ') : (prod.highlights || 'Fresh'),
+      isDeliveryAvailable: prod.isDeliveryAvailable !== undefined ? prod.isDeliveryAvailable : true,
+      active: prod.active !== undefined ? prod.active : true,
+      featured: prod.featured !== undefined ? prod.featured : false,
+      tags: prod.tags || '',
+      inStock: prod.inStock !== undefined ? prod.inStock : true
+    });
+    setActiveTab('add-product');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleConfirmDeleteProduct = async () => {
+    if (!deletingProduct) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch('/api/products', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: deletingProduct.id })
+      });
+
+      if (res.ok) {
+        setSuccessMessage(`🗑️ Product "${deletingProduct.name}" deleted successfully.`);
+        setDeletingProduct(null);
+        loadProducts();
+      } else {
+        const data = await res.json();
+        setErrorMessage(data.message || 'Failed to delete product.');
+      }
+    } catch (e) {
+      console.error("Delete product error:", e);
+      setErrorMessage('Error deleting product.');
     } finally {
       setSubmitting(false);
     }
@@ -322,7 +384,12 @@ export default function ShopkeeperDashboard({ shopkeeper }) {
     }
   };
 
-  const availableCategories = CATEGORIES.filter(c => c !== 'All');
+  const categoryOptions = Array.from(
+    new Set([
+      ...(categoriesList.map(c => (c.categoryKey || c.name || '').trim()).filter(Boolean)),
+      ...CATEGORIES.filter(c => c !== 'All')
+    ])
+  );
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans">
@@ -496,7 +563,7 @@ export default function ShopkeeperDashboard({ shopkeeper }) {
                       value={formData.category}
                       onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                     >
-                      {availableCategories.map((cat) => (
+                      {categoryOptions.map((cat) => (
                         <option key={cat} value={cat}>{cat}</option>
                       ))}
                     </select>
@@ -1054,6 +1121,21 @@ export default function ShopkeeperDashboard({ shopkeeper }) {
                       <span className="text-[11px] text-gray-500 line-through">₹{prod.originalPrice}</span>
                       <span className="text-[10px] font-bold text-amber-600">★ {prod.rating} ({prod.ratingCount || 125})</span>
                     </div>
+
+                    <div className="pt-2 border-t border-gray-200 flex items-center justify-between gap-2">
+                      <button
+                        onClick={() => handleStartEditProduct(prod)}
+                        className="flex-1 bg-white hover:bg-emerald-50 text-emerald-700 border border-gray-200 hover:border-emerald-300 font-bold px-2.5 py-1.5 rounded-xl text-xs transition"
+                      >
+                        ✏️ Edit
+                      </button>
+                      <button
+                        onClick={() => setDeletingProduct(prod)}
+                        className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold px-2.5 py-1.5 rounded-xl text-xs transition"
+                      >
+                        🗑️ Delete
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1212,6 +1294,49 @@ export default function ShopkeeperDashboard({ shopkeeper }) {
                 className="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-black px-4 py-2.5 rounded-xl text-xs transition shadow-md disabled:opacity-50"
               >
                 {submitting ? 'Deleting...' : 'Yes, Delete Category'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PRODUCT DELETE CONFIRMATION DIALOG */}
+      {deletingProduct && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl border border-gray-100 text-center animate-in fade-in zoom-in duration-200">
+            <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center text-3xl mx-auto border border-rose-100">
+              🗑️
+            </div>
+
+            <h3 className="text-lg font-black text-gray-900">Delete Product</h3>
+
+            <div className="bg-gray-50 p-3 rounded-2xl border border-gray-200 flex items-center gap-3 text-left">
+              <img src={deletingProduct.image} alt={deletingProduct.name} className="w-12 h-12 rounded-xl object-contain bg-white border" />
+              <div>
+                <h4 className="font-bold text-xs text-gray-900">{deletingProduct.name}</h4>
+                <p className="text-[11px] text-emerald-700 font-bold">₹{deletingProduct.price} • {deletingProduct.category}</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-500 font-medium">
+              Are you sure you want to delete this product? It will be permanently removed from store catalog.
+            </p>
+
+            <div className="pt-2 flex items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => setDeletingProduct(null)}
+                className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold px-4 py-2.5 rounded-xl text-xs transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={handleConfirmDeleteProduct}
+                className="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-black px-4 py-2.5 rounded-xl text-xs transition shadow-md disabled:opacity-50"
+              >
+                {submitting ? 'Deleting...' : 'Yes, Delete Product'}
               </button>
             </div>
           </div>

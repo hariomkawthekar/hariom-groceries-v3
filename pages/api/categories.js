@@ -5,9 +5,9 @@ import { supabase, isSupabaseConfigured } from '../../utils/supabaseClient.js';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 const FILE_PATH = path.join(DATA_DIR, 'categories.json');
+const DELETED_FILE_PATH = path.join(DATA_DIR, 'deleted_categories.json');
 const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads', 'categories');
 
-// Helper to ensure directories exist
 function ensureDirs() {
   if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -17,7 +17,6 @@ function ensureDirs() {
   }
 }
 
-// Helper to read custom categories from disk
 function readCustomCategoriesFromFile() {
   try {
     ensureDirs();
@@ -34,7 +33,6 @@ function readCustomCategoriesFromFile() {
   return [];
 }
 
-// Helper to write custom categories to disk
 function writeCustomCategoriesToFile(categories) {
   try {
     ensureDirs();
@@ -44,7 +42,32 @@ function writeCustomCategoriesToFile(categories) {
   }
 }
 
-// Helper to handle base64 image saving
+function readDeletedCategoryIdsFromFile() {
+  try {
+    ensureDirs();
+    if (fs.existsSync(DELETED_FILE_PATH)) {
+      const fileData = fs.readFileSync(DELETED_FILE_PATH, 'utf8');
+      const parsed = JSON.parse(fileData);
+      if (Array.isArray(parsed)) {
+        return new Set(parsed);
+      }
+    }
+  } catch (err) {
+    console.error('Error reading deleted categories file:', err);
+  }
+  return new Set();
+}
+
+function writeDeletedCategoryIdsToFile(deletedSet) {
+  try {
+    ensureDirs();
+    const arr = Array.from(deletedSet);
+    fs.writeFileSync(DELETED_FILE_PATH, JSON.stringify(arr, null, 2), 'utf8');
+  } catch (err) {
+    console.error('Error writing deleted categories file:', err);
+  }
+}
+
 function processCategoryImage(imageDataUrl, categoryId) {
   if (!imageDataUrl || typeof imageDataUrl !== 'string') {
     return 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400';
@@ -78,7 +101,6 @@ function processCategoryImage(imageDataUrl, categoryId) {
   }
 }
 
-// Sync helper between DB, file, and memory
 async function getStoredCustomCategories() {
   let categories = readCustomCategoriesFromFile();
 
@@ -98,7 +120,6 @@ async function getStoredCustomCategories() {
   return categories;
 }
 
-// Save helper to persist to both file and Supabase if available
 async function saveCustomCategories(categories) {
   global.customCategories = categories;
   writeCustomCategoriesToFile(categories);
@@ -107,20 +128,25 @@ async function saveCustomCategories(categories) {
 export default async function handler(req, res) {
   const { method } = req;
 
-  // GET: Return all active categories (custom shopkeeper + default preset tiles)
+  // GET: Return all active categories
   if (method === 'GET') {
     try {
       const customCats = await getStoredCustomCategories();
-      
-      // Filter out presets overridden by custom categories
-      const customNames = new Set(customCats.map(c => (c.name || '').trim().toLowerCase()));
-      const customIds = new Set(customCats.map(c => c.id));
+      const deletedIds = readDeletedCategoryIdsFromFile();
+
+      // Active custom categories (not in deletedIds)
+      const activeCustom = customCats.filter(c => !deletedIds.has(c.id));
+
+      const customNames = new Set(activeCustom.map(c => (c.name || '').trim().toLowerCase()));
+      const customIds = new Set(activeCustom.map(c => c.id));
 
       const filteredPresets = FEATURED_CATEGORY_TILES.filter(preset => 
-        !customIds.has(preset.id) && !customNames.has((preset.name || '').trim().toLowerCase())
+        !deletedIds.has(preset.id) &&
+        !customIds.has(preset.id) && 
+        !customNames.has((preset.name || '').trim().toLowerCase())
       );
 
-      const merged = [...customCats, ...filteredPresets];
+      const merged = [...activeCustom, ...filteredPresets];
       return res.status(200).json(merged);
     } catch (error) {
       console.error('GET categories error:', error);
@@ -141,10 +167,13 @@ export default async function handler(req, res) {
       const lowerName = trimmedName.toLowerCase();
 
       const existingCustom = await getStoredCustomCategories();
+      const deletedIds = readDeletedCategoryIdsFromFile();
 
-      // Check duplicates against custom categories and preset tiles
-      const isDuplicateCustom = existingCustom.some(c => (c.name || '').trim().toLowerCase() === lowerName);
-      const isDuplicatePreset = FEATURED_CATEGORY_TILES.some(c => (c.name || '').trim().toLowerCase() === lowerName);
+      const activeCustom = existingCustom.filter(c => !deletedIds.has(c.id));
+      const activePresets = FEATURED_CATEGORY_TILES.filter(p => !deletedIds.has(p.id));
+
+      const isDuplicateCustom = activeCustom.some(c => (c.name || '').trim().toLowerCase() === lowerName);
+      const isDuplicatePreset = activePresets.some(c => (c.name || '').trim().toLowerCase() === lowerName);
 
       if (isDuplicateCustom || isDuplicatePreset) {
         return res.status(400).json({ 
@@ -168,15 +197,11 @@ export default async function handler(req, res) {
         updatedAt: now
       };
 
-      // Try inserting into Supabase if available
       if (isSupabaseConfigured && supabase) {
         try {
-          const { error } = await supabase.from('categories').insert([newCategory]);
-          if (error) {
-            console.warn('Supabase insert notice (continuing with backend store):', error.message);
-          }
+          await supabase.from('categories').insert([newCategory]);
         } catch (sbErr) {
-          console.warn('Supabase insert exception:', sbErr);
+          console.warn('Supabase insert notice:', sbErr);
         }
       }
 
@@ -203,13 +228,16 @@ export default async function handler(req, res) {
       }
 
       const existingCustom = await getStoredCustomCategories();
+      const deletedIds = readDeletedCategoryIdsFromFile();
       const trimmedName = name ? name.trim() : '';
 
       if (trimmedName) {
         const lowerName = trimmedName.toLowerCase();
-        // Check duplicate name on another category ID
-        const duplicateCustom = existingCustom.some(c => c.id !== id && (c.name || '').trim().toLowerCase() === lowerName);
-        const duplicatePreset = FEATURED_CATEGORY_TILES.some(c => c.id !== id && (c.name || '').trim().toLowerCase() === lowerName);
+        const activeCustom = existingCustom.filter(c => !deletedIds.has(c.id));
+        const activePresets = FEATURED_CATEGORY_TILES.filter(p => !deletedIds.has(p.id));
+
+        const duplicateCustom = activeCustom.some(c => c.id !== id && (c.name || '').trim().toLowerCase() === lowerName);
+        const duplicatePreset = activePresets.some(c => c.id !== id && (c.name || '').trim().toLowerCase() === lowerName);
 
         if (duplicateCustom || duplicatePreset) {
           return res.status(400).json({
@@ -237,7 +265,6 @@ export default async function handler(req, res) {
         };
         existingCustom[index] = updatedCategory;
       } else {
-        // If editing a preset tile, create an override entry in custom categories
         const presetIndex = FEATURED_CATEGORY_TILES.findIndex(c => c.id === id);
         if (presetIndex >= 0) {
           const preset = FEATURED_CATEGORY_TILES[presetIndex];
@@ -279,7 +306,7 @@ export default async function handler(req, res) {
     }
   }
 
-  // DELETE: Delete Category
+  // DELETE: Remove Category (Custom or Preset)
   if (method === 'DELETE') {
     try {
       const { id } = req.body || req.query || {};
@@ -289,7 +316,11 @@ export default async function handler(req, res) {
       }
 
       const existingCustom = await getStoredCustomCategories();
-      const filtered = existingCustom.filter(c => c.id !== id);
+      const filteredCustom = existingCustom.filter(c => c.id !== id);
+
+      const deletedIds = readDeletedCategoryIdsFromFile();
+      deletedIds.add(id);
+      writeDeletedCategoryIdsToFile(deletedIds);
 
       if (isSupabaseConfigured && supabase) {
         try {
@@ -299,7 +330,7 @@ export default async function handler(req, res) {
         }
       }
 
-      await saveCustomCategories(filtered);
+      await saveCustomCategories(filteredCustom);
 
       return res.status(200).json({ message: 'Category deleted successfully.' });
     } catch (error) {
