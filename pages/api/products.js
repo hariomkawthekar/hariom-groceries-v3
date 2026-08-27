@@ -8,63 +8,64 @@ const FILE_PATH = path.join(DATA_DIR, 'products.json');
 const DELETED_FILE_PATH = path.join(DATA_DIR, 'deleted_products.json');
 const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads', 'products');
 
-function ensureDirs() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-  if (!fs.existsSync(UPLOAD_DIR)) {
-    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+if (!global.addedProducts) global.addedProducts = [];
+if (!global.deletedProductIds) global.deletedProductIds = new Set();
+
+function safeEnsureDirs() {
+  try {
+    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+    if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+  } catch (e) {
+    // Read-only filesystem on Vercel
   }
 }
 
 function readCustomProductsFromFile() {
   try {
-    ensureDirs();
+    safeEnsureDirs();
     if (fs.existsSync(FILE_PATH)) {
       const fileData = fs.readFileSync(FILE_PATH, 'utf8');
       const parsed = JSON.parse(fileData);
-      if (Array.isArray(parsed)) {
-        return parsed;
-      }
+      if (Array.isArray(parsed)) return parsed;
     }
   } catch (err) {
-    console.error('Error reading custom products file:', err);
+    // Read-only filesystem
   }
-  return [];
+  return global.addedProducts || [];
 }
 
 function writeCustomProductsToFile(products) {
+  global.addedProducts = products;
   try {
-    ensureDirs();
+    safeEnsureDirs();
     fs.writeFileSync(FILE_PATH, JSON.stringify(products, null, 2), 'utf8');
   } catch (err) {
-    console.error('Error writing custom products file:', err);
+    // Read-only filesystem
   }
 }
 
 function readDeletedProductIdsFromFile() {
   try {
-    ensureDirs();
+    safeEnsureDirs();
     if (fs.existsSync(DELETED_FILE_PATH)) {
       const fileData = fs.readFileSync(DELETED_FILE_PATH, 'utf8');
       const parsed = JSON.parse(fileData);
-      if (Array.isArray(parsed)) {
-        return new Set(parsed.map(String));
-      }
+      if (Array.isArray(parsed)) return new Set(parsed.map(String));
     }
   } catch (err) {
-    console.error('Error reading deleted products file:', err);
+    // Read-only filesystem
   }
-  return new Set();
+  return global.deletedProductIds || new Set();
 }
 
 function writeDeletedProductIdsToFile(deletedSet) {
+  global.deletedProductIds = deletedSet;
   try {
-    ensureDirs();
+    safeEnsureDirs();
     const arr = Array.from(deletedSet);
     fs.writeFileSync(DELETED_FILE_PATH, JSON.stringify(arr, null, 2), 'utf8');
   } catch (err) {
-    console.error('Error writing deleted products file:', err);
+    // Read-only filesystem
   }
 }
 
@@ -79,11 +80,9 @@ function processProductImage(imageDataUrl, prefix = 'prod') {
   }
 
   try {
-    ensureDirs();
+    safeEnsureDirs();
     const match = trimmed.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
-    if (!match) {
-      return 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500';
-    }
+    if (!match) return trimmed;
 
     let ext = match[1].toLowerCase();
     if (ext === 'jpeg') ext = 'jpg';
@@ -96,8 +95,8 @@ function processProductImage(imageDataUrl, prefix = 'prod') {
 
     return `/uploads/products/${fileName}`;
   } catch (error) {
-    console.error('Failed to process product image:', error);
-    return 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500';
+    // Return data URL directly on Vercel read-only filesystem so image loads properly
+    return trimmed;
   }
 }
 
@@ -107,12 +106,12 @@ async function getStoredCustomProducts() {
   if (isSupabaseConfigured && supabase) {
     try {
       const { data, error } = await supabase.from('products').select('*');
-      if (!error && Array.isArray(data) && data.length > 0) {
+      if (!error && Array.isArray(data)) {
         products = data;
         writeCustomProductsToFile(products);
       }
     } catch (dbErr) {
-      console.warn('Supabase product fetch error, fallback to file store:', dbErr.message || dbErr);
+      console.warn('Supabase product fetch notice:', dbErr.message || dbErr);
     }
   }
 
@@ -120,9 +119,23 @@ async function getStoredCustomProducts() {
   return products;
 }
 
-async function saveCustomProducts(products) {
-  global.addedProducts = products;
-  writeCustomProductsToFile(products);
+async function getDeletedProductIds() {
+  let deletedIds = readDeletedProductIdsFromFile();
+
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const { data, error } = await supabase.from('deleted_items').select('id').eq('type', 'product');
+      if (!error && Array.isArray(data)) {
+        data.forEach(item => deletedIds.add(String(item.id)));
+        writeDeletedProductIdsToFile(deletedIds);
+      }
+    } catch (dbErr) {
+      console.warn('Supabase deleted products notice:', dbErr.message || dbErr);
+    }
+  }
+
+  global.deletedProductIds = deletedIds;
+  return deletedIds;
 }
 
 export default async function handler(req, res) {
@@ -132,7 +145,7 @@ export default async function handler(req, res) {
   if (method === 'GET') {
     try {
       const customProducts = await getStoredCustomProducts();
-      const deletedIds = readDeletedProductIdsFromFile();
+      const deletedIds = await getDeletedProductIds();
 
       const activeCustom = customProducts.filter(p => !deletedIds.has(String(p.id)));
 
@@ -212,7 +225,7 @@ export default async function handler(req, res) {
 
       const existingCustom = await getStoredCustomProducts();
       const updatedList = [newProduct, ...existingCustom];
-      await saveCustomProducts(updatedList);
+      writeCustomProductsToFile(updatedList);
 
       return res.status(201).json({ 
         message: 'Product saved successfully! Live on homepage & category.', 
@@ -287,7 +300,6 @@ export default async function handler(req, res) {
 
         existingCustom[index] = updatedProduct;
       } else {
-        // If editing a default product, create an override entry
         const defaultProd = DEFAULT_PRODUCTS.find(p => String(p.id) === targetIdStr);
         if (defaultProd) {
           const newSellingPrice = numSellingPrice !== undefined ? numSellingPrice : defaultProd.price;
@@ -323,7 +335,7 @@ export default async function handler(req, res) {
         }
       }
 
-      await saveCustomProducts(existingCustom);
+      writeCustomProductsToFile(existingCustom);
 
       return res.status(200).json({
         message: 'Product updated successfully!',
@@ -335,7 +347,7 @@ export default async function handler(req, res) {
     }
   }
 
-  // DELETE: Remove Product (Custom or Default)
+  // DELETE: Remove Product
   if (method === 'DELETE') {
     try {
       const { id } = req.body || req.query || {};
@@ -348,19 +360,20 @@ export default async function handler(req, res) {
       const existingCustom = await getStoredCustomProducts();
       const filteredCustom = existingCustom.filter(p => String(p.id) !== targetIdStr);
 
-      const deletedIds = readDeletedProductIdsFromFile();
+      const deletedIds = await getDeletedProductIds();
       deletedIds.add(targetIdStr);
       writeDeletedProductIdsToFile(deletedIds);
 
       if (isSupabaseConfigured && supabase) {
         try {
           await supabase.from('products').delete().eq('id', id);
+          await supabase.from('deleted_items').upsert([{ id: targetIdStr, type: 'product' }]);
         } catch (sbErr) {
           console.warn('Supabase product delete notice:', sbErr);
         }
       }
 
-      await saveCustomProducts(filteredCustom);
+      writeCustomProductsToFile(filteredCustom);
 
       return res.status(200).json({ message: 'Product deleted successfully.' });
     } catch (error) {

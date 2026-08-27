@@ -8,63 +8,65 @@ const FILE_PATH = path.join(DATA_DIR, 'categories.json');
 const DELETED_FILE_PATH = path.join(DATA_DIR, 'deleted_categories.json');
 const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads', 'categories');
 
-function ensureDirs() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-  if (!fs.existsSync(UPLOAD_DIR)) {
-    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+// Memory fallbacks for serverless environments (e.g. Vercel read-only filesystem)
+if (!global.customCategories) global.customCategories = [];
+if (!global.deletedCategoryIds) global.deletedCategoryIds = new Set();
+
+function safeEnsureDirs() {
+  try {
+    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+    if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+  } catch (e) {
+    // Read-only filesystem on Vercel serverless
   }
 }
 
 function readCustomCategoriesFromFile() {
   try {
-    ensureDirs();
+    safeEnsureDirs();
     if (fs.existsSync(FILE_PATH)) {
       const fileData = fs.readFileSync(FILE_PATH, 'utf8');
       const parsed = JSON.parse(fileData);
-      if (Array.isArray(parsed)) {
-        return parsed;
-      }
+      if (Array.isArray(parsed)) return parsed;
     }
   } catch (err) {
-    console.error('Error reading custom categories file:', err);
+    // Read-only on serverless
   }
-  return [];
+  return global.customCategories || [];
 }
 
 function writeCustomCategoriesToFile(categories) {
+  global.customCategories = categories;
   try {
-    ensureDirs();
+    safeEnsureDirs();
     fs.writeFileSync(FILE_PATH, JSON.stringify(categories, null, 2), 'utf8');
   } catch (err) {
-    console.error('Error writing custom categories file:', err);
+    // Read-only on serverless
   }
 }
 
 function readDeletedCategoryIdsFromFile() {
   try {
-    ensureDirs();
+    safeEnsureDirs();
     if (fs.existsSync(DELETED_FILE_PATH)) {
       const fileData = fs.readFileSync(DELETED_FILE_PATH, 'utf8');
       const parsed = JSON.parse(fileData);
-      if (Array.isArray(parsed)) {
-        return new Set(parsed);
-      }
+      if (Array.isArray(parsed)) return new Set(parsed);
     }
   } catch (err) {
-    console.error('Error reading deleted categories file:', err);
+    // Read-only on serverless
   }
-  return new Set();
+  return global.deletedCategoryIds || new Set();
 }
 
 function writeDeletedCategoryIdsToFile(deletedSet) {
+  global.deletedCategoryIds = deletedSet;
   try {
-    ensureDirs();
+    safeEnsureDirs();
     const arr = Array.from(deletedSet);
     fs.writeFileSync(DELETED_FILE_PATH, JSON.stringify(arr, null, 2), 'utf8');
   } catch (err) {
-    console.error('Error writing deleted categories file:', err);
+    // Read-only on serverless
   }
 }
 
@@ -79,11 +81,9 @@ function processCategoryImage(imageDataUrl, categoryId) {
   }
 
   try {
-    ensureDirs();
+    safeEnsureDirs();
     const match = trimmed.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
-    if (!match) {
-      return 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400';
-    }
+    if (!match) return trimmed;
 
     let ext = match[1].toLowerCase();
     if (ext === 'jpeg') ext = 'jpg';
@@ -96,8 +96,8 @@ function processCategoryImage(imageDataUrl, categoryId) {
 
     return `/uploads/categories/${fileName}`;
   } catch (error) {
-    console.error('Failed to process base64 image:', error);
-    return 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400';
+    // On Vercel read-only filesystem, return data URL directly so image displays
+    return trimmed;
   }
 }
 
@@ -107,12 +107,12 @@ async function getStoredCustomCategories() {
   if (isSupabaseConfigured && supabase) {
     try {
       const { data, error } = await supabase.from('categories').select('*');
-      if (!error && Array.isArray(data) && data.length > 0) {
+      if (!error && Array.isArray(data)) {
         categories = data;
         writeCustomCategoriesToFile(categories);
       }
     } catch (dbErr) {
-      console.warn('Supabase fetch error, fallback to file storage:', dbErr.message || dbErr);
+      console.warn('Supabase fetch notice:', dbErr.message || dbErr);
     }
   }
 
@@ -120,23 +120,35 @@ async function getStoredCustomCategories() {
   return categories;
 }
 
-async function saveCustomCategories(categories) {
-  global.customCategories = categories;
-  writeCustomCategoriesToFile(categories);
+async function getDeletedCategoryIds() {
+  let deletedIds = readDeletedCategoryIdsFromFile();
+
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const { data, error } = await supabase.from('deleted_items').select('id').eq('type', 'category');
+      if (!error && Array.isArray(data)) {
+        data.forEach(item => deletedIds.add(item.id));
+        writeDeletedCategoryIdsToFile(deletedIds);
+      }
+    } catch (dbErr) {
+      console.warn('Supabase deleted items notice:', dbErr.message || dbErr);
+    }
+  }
+
+  global.deletedCategoryIds = deletedIds;
+  return deletedIds;
 }
 
 export default async function handler(req, res) {
   const { method } = req;
 
-  // GET: Return all active categories
+  // GET: Return active categories
   if (method === 'GET') {
     try {
       const customCats = await getStoredCustomCategories();
-      const deletedIds = readDeletedCategoryIdsFromFile();
+      const deletedIds = await getDeletedCategoryIds();
 
-      // Active custom categories (not in deletedIds)
       const activeCustom = customCats.filter(c => !deletedIds.has(c.id));
-
       const customNames = new Set(activeCustom.map(c => (c.name || '').trim().toLowerCase()));
       const customIds = new Set(activeCustom.map(c => c.id));
 
@@ -167,7 +179,7 @@ export default async function handler(req, res) {
       const lowerName = trimmedName.toLowerCase();
 
       const existingCustom = await getStoredCustomCategories();
-      const deletedIds = readDeletedCategoryIdsFromFile();
+      const deletedIds = await getDeletedCategoryIds();
 
       const activeCustom = existingCustom.filter(c => !deletedIds.has(c.id));
       const activePresets = FEATURED_CATEGORY_TILES.filter(p => !deletedIds.has(p.id));
@@ -206,7 +218,7 @@ export default async function handler(req, res) {
       }
 
       const updatedList = [newCategory, ...existingCustom];
-      await saveCustomCategories(updatedList);
+      writeCustomCategoriesToFile(updatedList);
 
       return res.status(201).json({
         message: `Category "${trimmedName}" created successfully!`,
@@ -214,7 +226,7 @@ export default async function handler(req, res) {
       });
     } catch (error) {
       console.error('POST category error:', error);
-      return res.status(500).json({ message: 'Failed to save category to database.' });
+      return res.status(500).json({ message: 'Failed to save category.' });
     }
   }
 
@@ -228,7 +240,7 @@ export default async function handler(req, res) {
       }
 
       const existingCustom = await getStoredCustomCategories();
-      const deletedIds = readDeletedCategoryIdsFromFile();
+      const deletedIds = await getDeletedCategoryIds();
       const trimmedName = name ? name.trim() : '';
 
       if (trimmedName) {
@@ -294,7 +306,7 @@ export default async function handler(req, res) {
         }
       }
 
-      await saveCustomCategories(existingCustom);
+      writeCustomCategoriesToFile(existingCustom);
 
       return res.status(200).json({
         message: 'Category updated successfully!',
@@ -306,7 +318,7 @@ export default async function handler(req, res) {
     }
   }
 
-  // DELETE: Remove Category (Custom or Preset)
+  // DELETE: Remove Category
   if (method === 'DELETE') {
     try {
       const { id } = req.body || req.query || {};
@@ -318,19 +330,20 @@ export default async function handler(req, res) {
       const existingCustom = await getStoredCustomCategories();
       const filteredCustom = existingCustom.filter(c => c.id !== id);
 
-      const deletedIds = readDeletedCategoryIdsFromFile();
+      const deletedIds = await getDeletedCategoryIds();
       deletedIds.add(id);
       writeDeletedCategoryIdsToFile(deletedIds);
 
       if (isSupabaseConfigured && supabase) {
         try {
           await supabase.from('categories').delete().eq('id', id);
+          await supabase.from('deleted_items').upsert([{ id, type: 'category' }]);
         } catch (sbErr) {
           console.warn('Supabase delete notice:', sbErr);
         }
       }
 
-      await saveCustomCategories(filteredCustom);
+      writeCustomCategoriesToFile(filteredCustom);
 
       return res.status(200).json({ message: 'Category deleted successfully.' });
     } catch (error) {
